@@ -84,10 +84,11 @@
 #include <avr/sleep.h>		// sleep mode utilities
 #include <util/delay.h>		// some convenient delay functions
 #include <stdlib.h>			// some handy functions like utoa()
+#include "display.h"        // code to drive the 7-segment displayf
 
 // Defines
 #define VERSION			"1.50"
-#define URL				"http://LVA.bg/products/geiger-counter
+#define URL				"http://LVA.bg/products/geiger-counter"
 
 #define	F_CPU			8000000	// AVR clock speed in Hz
 #define	BAUD			9600	// Serial BAUD rate
@@ -108,6 +109,8 @@ void sendreport(void);	// log data over the serial port
 
 // Global variables
 volatile uint8_t nobeep;		// flag used to mute beeper
+volatile uint8_t disp_state;    // display state, [0..3]
+volatile uint8_t statechange;   // display state was recently changed
 volatile uint16_t count;		// number of GM events that has occurred
 volatile uint16_t slowcpm;		// GM counts per minute in slow mode
 volatile uint16_t fastcpm;		// GM counts per minute in fast mode
@@ -149,12 +152,15 @@ ISR(INT0_vect)
 //	execute multiple times if we're not careful.
 ISR(INT1_vect)
 {
-	_delay_ms(25);					// slow down interrupt calls (crude debounce)
+	_delay_ms(25);							// slow down interrupt calls (crude debounce)
 	
-	if ((PIND & _BV(PD3)) == 0)		// is button still pressed?
-		nobeep ^= 1;				// toggle mute mode
+	if ((PIND & _BV(PD3)) == 0)	{			// is button still pressed?
+		disp_state = (disp_state + 1) & 3;	// increment state
+		nobeep = disp_state & 1;
+		statechange = 1;
+	}
 	
-	EIFR |= _BV(INTF1);				// clear interrupt flag to avoid executing ISR again due to switch bounce
+	EIFR |= _BV(INTF1);						// clear interrupt flag to avoid executing ISR again due to switch bounce
 }
 
 /*	Timer1 compare interrupt 
@@ -247,6 +253,19 @@ void checkevent(void)
 		TCCR0A &= ~(_BV(COM0A0));	// disconnect OCR0A from Timer0, this avoids occasional HVPS whine after beep
 	}	
 }
+
+// turn on/off the display
+void checkdisplay(void)
+{
+	if (statechange) {
+		statechange = 0;
+		if (disp_state == 2)
+			display_turn_off();
+		if (disp_state == 0)
+			display_turn_on();
+	}
+}
+
 // log data over the serial port
 void sendreport(void)
 {
@@ -306,6 +325,9 @@ void sendreport(void)
 			
 		// We're done reporting data, output a newline.
 		uart_putchar('\n');	
+
+		if (disp_state < 2)
+			display_write_value(usv_scaled);
 	}	
 }
 
@@ -344,6 +366,8 @@ int main(void)
 	TCCR1B = _BV(WGM12) | _BV(CS12);  // CTC mode, prescaler = 256 (32us ticks)
 	OCR1A = 31250;	// 32us * 31250 = 1 sec
 	TIMSK = _BV(OCIE1A);  // Timer1 overflow interrupt enable
+
+	display_turn_on();
 	
 	sei();	// Enable interrupts
 
@@ -360,6 +384,8 @@ int main(void)
 		sleep_disable();	// disable sleep so we don't accidentally go to sleep
 		
 		checkevent();	// check if we should signal an event (led + beep)
+
+		checkdisplay(); // check if we need to do something with the LED display
 	
 		sendreport();	// send a log report over serial
 		
