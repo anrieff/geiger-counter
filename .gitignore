@@ -1,0 +1,9 @@
+*.sublime-*
+*.o
+*.DS_Store
+src/*.elf
+src/*.hex
+src/*.map
+src/*.lst
+src/TODO
+src/*.su
