@@ -28,4 +28,4 @@ void display_turn_on(void);
 void display_turn_off(void);
 
 //!< Display a value in units of 10^-8 Sieverts (value == 100 equals 1 uSv)
-void display_write_value(int32_t value);
+void display_write_value(uint32_t value);

@@ -1,6 +1,7 @@
 # Name:			Makefile
-# Author:		Jeff Keyzer
+# Authors:		Jeff Keyzer, Veselin Georgiev
 # Copyright:	2011 Jeff Keyzer, MightyOhm Engineering	
+#               2015 Veselin Georgiev, LVA Ltd.
 #
 # This Makefile is derived from the template that comes with CrossPack for the Mac,
 # but with several improvements.
@@ -18,6 +19,12 @@
 # LFUSE			Target device configuration fuses, low byte.
 # HFUSE			Targer device configuration fuses, high byte.
 # EFUSE			Target device configuration fuses (extended).
+#
+# Note: the additions for the LVA device (w/ serial display) extend the program code
+#       quite a bit, and we were over the budget for program memory. Some optimizations
+#       were performed, and the -Os flag was replaced with -O2, which generates smaller code.
+#       The code now barely fits in memory when using avr-gcc 4.8.1. Feel free to
+#       experiment with -Os if you're using a different gcc version.
 
 PROGRAM		= geiger
 OBJECTS		= \
@@ -40,7 +47,7 @@ EFUSE		= 0xFF
 # Tune the lines below only if you know what you are doing:
 
 AVRDUDE = avrdude -c $(PROGRAMMER) -P $(PORT) -p $(DEVICE)
-COMPILE = avr-gcc -g -Wall -Os -DF_CPU=$(CLOCK) -mmcu=$(DEVICE)
+COMPILE = avr-gcc -g -Wall -O2 -DF_CPU=$(CLOCK) -mmcu=$(DEVICE)
 
 # Linker options
 LDFLAGS	= -Wl,-Map=$(PROGRAM).map -Wl,--cref 

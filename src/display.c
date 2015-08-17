@@ -31,6 +31,7 @@
 #include <avr/pgmspace.h>	// tools used to store variables in program memory
 #include <avr/sleep.h>		// sleep mode utilities
 #include <util/delay.h>		// some convenient delay functions
+#include <stdlib.h>
 
 #define	F_CPU			8000000	// AVR clock speed in Hz
 
@@ -91,7 +92,7 @@ void display_turn_on(void)
 	PORTB |= _BV(D_PWR);
 
 	// wait for it to initialize:
-	_delay_ms(255);
+	_delay_ms(200);
 	// send a reset:
 	display_spi_byte(0x76);
 	_delay_ms(NVRAM_DELAY);
@@ -103,40 +104,29 @@ void display_turn_on(void)
 	display_set_dots(DP1 | DP2 | DP3 | DP4);
 }
 
-static void display_write_int_value(uint32_t value, uint8_t num_digits, uint8_t dot_mask)
+static void display_write_int_value(uint32_t value, uint8_t dot_mask)
 {
-	char d[4];
-	int8_t i;
-	for (i = 3; i >= 0; i--) {
-		d[i] = value % 10 + '0';
-		value /= 10;
-	}
-	for (i = 0; i < 3; i++) {
-		if (d[i] == '0' && num_digits < 4 - i)
-			d[i] = ' ';
-		display_spi_byte(d[i]);
-	}
+	char d[6];
+	uint8_t i;
+	utoa(value + 10000, d, 10);
+	if (dot_mask == DP2 && d[1] == '0') // *
+		d[1] = ' ';                     // *
+	for (i = 0; i < 4; i++)
+		display_spi_byte(d[i + 1]);
 	display_set_dots(dot_mask);
-}
-
-static void display_write_off_limits(void)
-{
-	display_spi_byte('-');
-	display_spi_byte('O');
-	display_spi_byte('L');
-	display_spi_byte('-');
-	display_set_dots(0);
 }
 
 void display_write_value(uint32_t value)
 {
 	if (!display_on) return;
-	if (value <= 9999)
-		display_write_int_value(value, 3, DP2);
-	else if (value <= 99999)
-		display_write_int_value(value / 10, 4, DP3);
-	else if (value <= 999999)
-		display_write_int_value(value / 100, 4, 0);
-	else
-		display_write_off_limits();
+	if (value <= 9999) 
+		display_write_int_value(value, DP2);
+	else if (value / 10 <= 9999)
+		display_write_int_value(value / 10, DP3);
+	else if (value / 100 <= 9999)
+		display_write_int_value(value / 100, 0);
+	else {
+		// radiation is above 10 mSv, write "9999":
+		display_write_int_value(9999, 0);
+	}
 }
