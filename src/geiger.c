@@ -345,8 +345,8 @@ int main(void)
 	uart_putstring_P(PSTR("LVA Geiger Counter " VERSION "\n" URL "\n"));
 
 	// Set up AVR IO ports
-	DDRB = _BV(PB4) | _BV(PB2);  // set pins connected to LED and piezo as outputs
-	DDRD = _BV(PD6);	// configure PULSE output
+	DDRB = _BV(PB4) | _BV(PB2) | _BV(PB0);  // set pins connected to LED, piezo and display-vdd as outputs
+	DDRD = _BV(PD6) | _BV(PD5) | _BV(PD4);	// configure PULSE output and SPI pins
 	PORTD |= _BV(PD3);	// enable internal pull up resistor on pin connected to button
 	
 	// Set up external interrupts	
