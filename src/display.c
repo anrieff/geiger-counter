@@ -25,6 +25,22 @@
  * PB0 - power on/off
  * PD4 - SCL
  * PD5 - SDA
+ * 
+ * The display we're interfacing is the SparkFun serial display (COM-11442)
+ * 
+ * Header to display pinout (5-pin header, ordering from left to right 
+ * if viewed from top of the PCB):
+ *
+ * +-----+---------------------------+--------------------------+ 
+ * | pin | name                      | pin name on the display. |
+ * +-----+---------------------------+--------------------------+
+ * |   1 | Vdd                       | VCC                      |
+ * |   2 | GND / also device select  | /SS                      |
+ * |   3 | SCL                       | SCK                      |
+ * |   4 | SDA                       | SDI                      |
+ * |   5 | GND                       | GND                      |
+ * +-----+---------------------------+--------------------------+
+ * 
  */
 
 #include <avr/io.h>			// this contains the AVR IO port definitions
