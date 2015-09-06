@@ -114,7 +114,7 @@ void display_turn_on(void)
 	_delay_ms(NVRAM_DELAY);
 	// setup brightness:
 	display_spi_byte(0x7a);
-	display_spi_byte(0xfe - 192); // 75% brightness (smaller values mean dimmer display)
+	display_spi_byte(0); // 100% brightness (smaller values mean dimmer display)
 	_delay_ms(NVRAM_DELAY);
 	// display four dots:
 	display_set_dots(DP1 | DP2 | DP3 | DP4);
