@@ -101,6 +101,14 @@ static void display_set_dots(uint8_t mask)
 	display_spi_byte(mask);
 }
 
+void display_set_brightness(uint8_t value)
+{
+	// setup brightness:
+	display_spi_byte(0x7a);
+	display_spi_byte(value);
+	_delay_ms(NVRAM_DELAY);
+}
+
 void display_turn_on(void)
 {
 	if (display_on) return;
@@ -112,10 +120,8 @@ void display_turn_on(void)
 	// send a reset:
 	display_spi_byte(0x76);
 	_delay_ms(NVRAM_DELAY);
-	// setup brightness:
-	display_spi_byte(0x7a);
-	display_spi_byte(0); // 100% brightness (smaller values mean dimmer display)
-	_delay_ms(NVRAM_DELAY);
+	// run at 100% brightness:
+	display_set_brightness(0);
 	// display four dots:
 	display_set_dots(DP1 | DP2 | DP3 | DP4);
 }
@@ -125,8 +131,8 @@ static void display_write_int_value(uint32_t value, uint8_t dot_mask)
 	char d[6];
 	uint8_t i;
 	utoa(value + 10000, d, 10);
-	if (dot_mask == DP2 && d[1] == '0') // *
-		d[1] = ' ';                     // *
+	if (dot_mask == DP2 && d[1] == '0')
+		d[1] = ' ';
 	for (i = 0; i < 4; i++)
 		display_spi_byte(d[i + 1]);
 	display_set_dots(dot_mask);

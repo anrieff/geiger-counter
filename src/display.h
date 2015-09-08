@@ -24,8 +24,12 @@
 /// turn on the display (the display will be initialized to four dots)
 void display_turn_on(void);
 
-//!< turn off the display
+/// turn off the display
 void display_turn_off(void);
+
+/// set the display brightness. The values are 0..254 and are inverted in
+/// meaning; 0 means full brightness, 128 is 50%, 254 is almost dark.
+void display_set_brightness(uint8_t value);
 
 //!< Display a value in units of 10^-8 Sieverts (value == 100 equals 1 uSv)
 void display_write_value(uint32_t value);

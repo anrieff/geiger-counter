@@ -42,8 +42,10 @@
 	The data is reported in comma separated value (CSV) format:
 	CPS, #####, CPM, #####, uSv/hr, ###.##, SLOW|FAST|INST
 	
-	There are three modes.  Normally, the sample period is LONG_PERIOD (default 60 seconds). This is SLOW averaging mode.
-	If the last five measured counts exceed a preset threshold, the sample period switches to SHORT_PERIOD seconds (default 5 seconds).
+	There are three modes.  Normally, the sample period is LONG_PERIOD (default 60 seconds).
+	This is SLOW averaging mode.
+	If the last five measured counts exceed a preset threshold, the sample period switches to
+	SHORT_PERIOD seconds (default 5 seconds).
 	This is FAST mode, and is more responsive but less accurate. Finally, if CPS > 255, we report CPS*60 and switch to
 	INST mode, since we can't store data in the (8-bit) sample buffer.  This behavior could be customized to suit a particular
 	logging application.
@@ -84,7 +86,7 @@
 #include <avr/sleep.h>		// sleep mode utilities
 #include <util/delay.h>		// some convenient delay functions
 #include <stdlib.h>			// some handy functions like utoa()
-#include "display.h"        // code to drive the 7-segment displayf
+#include "display.h"        // code to drive the 7-segment display
 
 // Defines
 #define VERSION			"1.50"
@@ -95,7 +97,7 @@
 #define SER_BUFF_LEN	11		// Serial buffer length
 #define THRESHOLD		1000	// CPM threshold for fast avg mode
 #define LONG_PERIOD		60		// # of samples to keep in memory in slow avg mode
-#define SHORT_PERIOD	5		// # or samples for fast avg mode
+#define SHORT_PERIOD	5		// # of samples for fast avg mode
 #define SCALE_FACTOR	57		//	CPM to uSv/hr conversion factor (x10,000 to avoid float)
 #define PULSEWIDTH		100		// width of the PULSE output (in microseconds)
 
@@ -116,12 +118,9 @@ volatile uint16_t slowcpm;		// GM counts per minute in slow mode
 volatile uint16_t fastcpm;		// GM counts per minute in fast mode
 volatile uint16_t cps;			// GM counts per second, updated once a second
 volatile uint8_t overflow;		// overflow flag
-
-volatile uint8_t buffer[LONG_PERIOD];	// the sample buffer
-volatile uint8_t idx;					// sample buffer index
-
 volatile uint8_t eventflag;	// flag for ISR to tell main loop if a GM event has occurred
 volatile uint8_t tick;		// flag that tells main() when 1 second has passed
+uint8_t lagging_idx;  // = (idx - SHORT_PERIOD) % LONG_PERIOD
 
 char serbuf[SER_BUFF_LEN];	// serial buffer
 uint8_t mode;				// logging mode, 0 = slow, 1 = fast, 2 = inst
@@ -155,7 +154,7 @@ ISR(INT1_vect)
 	_delay_ms(25);							// slow down interrupt calls (crude debounce)
 	
 	if ((PIND & _BV(PD3)) == 0)	{			// is button still pressed?
-		disp_state = (disp_state + 1) & 3;	// increment state
+		disp_state = (disp_state + 1) & 7;	// increment state
 		nobeep = disp_state & 1;
 		statechange = 1;
 	}
@@ -163,41 +162,41 @@ ISR(INT1_vect)
 	EIFR |= _BV(INTF1);						// clear interrupt flag to avoid executing ISR again due to switch bounce
 }
 
+static uint8_t buffer[LONG_PERIOD];	// the sample buffer
+static uint8_t idx;					// sample buffer index
+static uint16_t fastsum;           // running count of the short period counts
 /*	Timer1 compare interrupt 
  *	This interrupt is called every time TCNT1 reaches OCR1A and is reset back to 0 (CTC mode).
  *  Timer1 is setup so this happens once a second.
  */
 ISR(TIMER1_COMPA_vect)
 {
-	uint8_t i;	// index for fast mode
+	uint8_t new_sample;
 	tick = 1;	// update flag
 	
 	//PORTB ^= _BV(PB4);	// toggle the LED (for debugging purposes)
 	cps = count;
-	slowcpm -= buffer[idx];		// subtract oldest sample in sample buffer
 	
 	if (count > UINT8_MAX) {	// watch out for overflowing the sample buffer
 		count = UINT8_MAX;
 		overflow = 1;
 	}
+	new_sample = count;
 			
-	slowcpm += count;			// add current sample
-	buffer[idx] = count;	// save current sample to buffer (replacing old value)
+	// subtract oldest sample in sample buffer and add the newest:
+	slowcpm -= buffer[idx];
+	buffer[idx] = new_sample;	// save current sample to buffer (replacing old value)
+	slowcpm += new_sample;
 	
-	// Compute CPM based on the last SHORT_PERIOD samples
-	fastcpm = 0;
-	for(i=0; i<SHORT_PERIOD;i++) {
-		int8_t x = idx - i;
-		if (x < 0)
-			x = LONG_PERIOD + x;
-		fastcpm += buffer[x];	// sum up the last 5 CPS values
-	}
-	fastcpm = fastcpm * (LONG_PERIOD/SHORT_PERIOD);	// convert to CPM
+	// Compute CPM based on the last SHORT_PERIOD samples:
+	fastsum = fastsum + new_sample - buffer[lagging_idx];
+	fastcpm = fastsum * (LONG_PERIOD / SHORT_PERIOD);
 	
 	// Move to the next entry in the sample buffer
-	idx++;
-	if (idx >= LONG_PERIOD)
+	if (++idx >= LONG_PERIOD)
 		idx = 0;
+	if (++lagging_idx >= LONG_PERIOD)
+		lagging_idx = 0;
 	count = 0;  // reset counter
 }
 
@@ -259,10 +258,20 @@ void checkdisplay(void)
 {
 	if (statechange) {
 		statechange = 0;
-		if (disp_state == 2)
-			display_turn_off();
-		if (disp_state == 0)
-			display_turn_on();
+		switch (disp_state) {
+			case 0:
+				display_turn_on(); // this implies 100% brightness
+				break;
+			case 2:
+				display_set_brightness(32); // feels like 50%
+				break;
+			case 4:
+				display_set_brightness(96); // feels like 10%
+				break;
+			case 6:
+				display_turn_off();          // 0%, hehe
+				break;
+		}
 	}
 }
 
@@ -321,12 +330,12 @@ void sendreport(void)
 			uart_putstring_P(PSTR(", FAST"));
 		} else {
 			uart_putstring_P(PSTR(", SLOW"));
-		}			
+		}
 			
 		// We're done reporting data, output a newline.
 		uart_putchar('\n');	
 
-		if (disp_state < 2)
+		if (disp_state < 6)
 			display_write_value(usv_scaled);
 	}	
 }
@@ -334,6 +343,7 @@ void sendreport(void)
 // Start of main program
 int main(void)
 {	
+	lagging_idx = LONG_PERIOD - SHORT_PERIOD;
 	// Configure the UART	
 	// Set baud rate generator based on F_CPU
 	UBRRH = (unsigned char)(F_CPU/(16UL*BAUD)-1)>>8;

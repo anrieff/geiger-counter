@@ -47,13 +47,13 @@ EFUSE		= 0xFF
 # Tune the lines below only if you know what you are doing:
 
 AVRDUDE = avrdude -c $(PROGRAMMER) -P $(PORT) -p $(DEVICE)
-COMPILE = avr-gcc -g -Wall -O2 -DF_CPU=$(CLOCK) -mmcu=$(DEVICE)
+COMPILE = avr-gcc -g -Wall -Os -DF_CPU=$(CLOCK) -mmcu=$(DEVICE)
 
 # Linker options
 LDFLAGS	= -Wl,-Map=$(PROGRAM).map -Wl,--cref 
 
 # Add size command so we can see how much space we are using on the target device.
-SIZE	= avr-size -C --mcu=$(DEVICE)
+SIZE	= avr-size -A 
 
 # symbolic targets:
 all:	$(PROGRAM).hex
