@@ -120,7 +120,6 @@ volatile uint16_t cps;			// GM counts per second, updated once a second
 volatile uint8_t overflow;		// overflow flag
 volatile uint8_t eventflag;	// flag for ISR to tell main loop if a GM event has occurred
 volatile uint8_t tick;		// flag that tells main() when 1 second has passed
-uint8_t lagging_idx;  // = (idx - SHORT_PERIOD) % LONG_PERIOD
 
 char serbuf[SER_BUFF_LEN];	// serial buffer
 uint8_t mode;				// logging mode, 0 = slow, 1 = fast, 2 = inst
@@ -162,15 +161,17 @@ ISR(INT1_vect)
 	EIFR |= _BV(INTF1);						// clear interrupt flag to avoid executing ISR again due to switch bounce
 }
 
-static uint8_t buffer[LONG_PERIOD];	// the sample buffer
-static uint8_t idx;					// sample buffer index
-static uint16_t fastsum;           // running count of the short period counts
 /*	Timer1 compare interrupt 
  *	This interrupt is called every time TCNT1 reaches OCR1A and is reset back to 0 (CTC mode).
  *  Timer1 is setup so this happens once a second.
  */
 ISR(TIMER1_COMPA_vect)
 {
+	static uint8_t buffer[LONG_PERIOD];	// the sample buffer
+	static uint8_t idx;					// sample buffer index
+	static uint16_t fastsum;           // running count of the short period counts
+	static uint8_t lagging_idx = LONG_PERIOD - SHORT_PERIOD; // fast sample window back index
+	// in effect, fastsum holds the sum of buffer[i], where lagging_idx <= i < idx
 	uint8_t new_sample;
 	tick = 1;	// update flag
 	
@@ -181,6 +182,13 @@ ISR(TIMER1_COMPA_vect)
 		count = UINT8_MAX;
 		overflow = 1;
 	}
+	/*
+	 * new_sample is what we add to the running counts. you may wonder why
+	 * we truncate it to 8-bit first before adding it, as slowcpm and fastsum
+	 * are all 16-bit counters, so the could handle it. However, we
+	 * wouldn't be able to subtract it later when we recall its value from
+	 * the sample buffer (and making the sample buffer 16-bit is infeasible).
+	 */
 	new_sample = count;
 			
 	// subtract oldest sample in sample buffer and add the newest:
@@ -343,7 +351,6 @@ void sendreport(void)
 // Start of main program
 int main(void)
 {	
-	lagging_idx = LONG_PERIOD - SHORT_PERIOD;
 	// Configure the UART	
 	// Set baud rate generator based on F_CPU
 	UBRRH = (unsigned char)(F_CPU/(16UL*BAUD)-1)>>8;
