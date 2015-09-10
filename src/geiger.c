@@ -355,9 +355,9 @@ void sendreport(void)
 
 		if (disp_state < 6) {
 			if (display_mode == RADIATION)
-				display_show_radiation(usv_scaled);
+				display_int_value(usv_scaled, 2);
 			else
-				display_show_counts(total_count);
+				display_int_value(total_count, 0);
 		}
 	}	
 }

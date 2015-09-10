@@ -126,42 +126,26 @@ void display_turn_on(void)
 	display_set_dots(DP1 | DP2 | DP3 | DP4);
 }
 
-static void display_write_int_value(uint32_t value, uint8_t dot_mask)
+void display_int_value(uint32_t x, int8_t dp)
 {
-	char d[6];
+	char buff[12];
 	uint8_t i;
-	utoa(value + 10000, d, 10);
-	if (dot_mask == DP2 && d[1] == '0')
-		d[1] = ' ';
-	for (i = 0; i < 4; i++)
-		display_spi_byte(d[i + 1]);
-	display_set_dots(dot_mask);
-}
-
-void display_show_radiation(uint32_t value)
-{
-	if (!display_on) return;
-	if (value <= 9999) 
-		display_write_int_value(value, DP2);
-	else if (value / 10 <= 9999)
-		display_write_int_value(value / 10, DP3);
-	else if (value / 100 <= 9999)
-		display_write_int_value(value / 100, 0);
-	else {
-		// radiation is above 10 mSv, write "9999":
-		display_write_int_value(9999, 0);
+	if (x < 1000) {
+		utoa(x + 1000, buff, 10);
+		buff[0] = ' ';
+	} else {
+		ultoa(x, buff, 10);
 	}
+	char* s = buff + 4;
+	while (*(s++)) dp--;
+	if (dp < 0) {
+		buff[0] = '-';
+		buff[1] = 'O';
+		buff[2] = 'L';
+		buff[3] = '-';
+	}
+	for (i = 0; i < 4; i++)
+		display_spi_byte(buff[i]);
+	display_set_dots((8 >> dp) & (DP2|DP3));
 }
 
-void display_show_counts(uint32_t counts)
-{
-	if (!display_on) return;
-	if (counts <= 9999)
-		display_write_int_value(counts, 0);
-	else if (counts / 10 <= 9999)
-		display_write_int_value(counts / 10, DP2);
-	else if (counts / 100 <= 9999)
-		display_write_int_value(counts / 100, DP3);
-	else
-		display_write_int_value(9999, 0);
-}
