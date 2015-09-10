@@ -120,9 +120,18 @@ volatile uint16_t cps;			// GM counts per second, updated once a second
 volatile uint8_t overflow;		// overflow flag
 volatile uint8_t eventflag;	// flag for ISR to tell main loop if a GM event has occurred
 volatile uint8_t tick;		// flag that tells main() when 1 second has passed
+volatile uint32_t total_count; // total GM count from device startup
 
 char serbuf[SER_BUFF_LEN];	// serial buffer
 uint8_t mode;				// logging mode, 0 = slow, 1 = fast, 2 = inst
+
+// possible values for display_mode:
+typedef enum {
+	COUNTER,
+	RADIATION,
+} DisplayMode;
+
+DisplayMode display_mode;
 
 
 // Interrupt service routines
@@ -133,6 +142,7 @@ ISR(INT0_vect)
 {
 	if (count < UINT16_MAX)	// check for overflow, if we do overflow just cap the counts at max possible
 		count++; // increase event counter
+	total_count++;
 
 	// send a pulse to the PULSE connector
 	// a delay of 100us limits the max CPS to about 8000
@@ -343,8 +353,12 @@ void sendreport(void)
 		// We're done reporting data, output a newline.
 		uart_putchar('\n');	
 
-		if (disp_state < 6)
-			display_write_value(usv_scaled);
+		if (disp_state < 6) {
+			if (display_mode == RADIATION)
+				display_show_radiation(usv_scaled);
+			else
+				display_show_counts(total_count);
+		}
 	}	
 }
 
@@ -365,6 +379,9 @@ int main(void)
 	DDRB = _BV(PB4) | _BV(PB2) | _BV(PB0);  // set pins connected to LED, piezo and display-vdd as outputs
 	DDRD = _BV(PD6) | _BV(PD5) | _BV(PD4);	// configure PULSE output and SPI pins
 	PORTD |= _BV(PD3);	// enable internal pull up resistor on pin connected to button
+
+	// is the button pressed on startup? if so, the display should show counts, not uSv/h:
+	display_mode = ((PIND & _BV(PD3)) == 0) ? COUNTER : RADIATION;
 	
 	// Set up external interrupts	
 	// INT0 is triggered by a GM impulse

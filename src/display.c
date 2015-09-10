@@ -138,7 +138,7 @@ static void display_write_int_value(uint32_t value, uint8_t dot_mask)
 	display_set_dots(dot_mask);
 }
 
-void display_write_value(uint32_t value)
+void display_show_radiation(uint32_t value)
 {
 	if (!display_on) return;
 	if (value <= 9999) 
@@ -151,4 +151,17 @@ void display_write_value(uint32_t value)
 		// radiation is above 10 mSv, write "9999":
 		display_write_int_value(9999, 0);
 	}
+}
+
+void display_show_counts(uint32_t counts)
+{
+	if (!display_on) return;
+	if (counts <= 9999)
+		display_write_int_value(counts, 0);
+	else if (counts / 10 <= 9999)
+		display_write_int_value(counts / 10, DP2);
+	else if (counts / 100 <= 9999)
+		display_write_int_value(counts / 100, DP3);
+	else
+		display_write_int_value(9999, 0);
 }

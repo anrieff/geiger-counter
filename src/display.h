@@ -31,5 +31,8 @@ void display_turn_off(void);
 /// meaning; 0 means full brightness, 128 is 50%, 254 is almost dark.
 void display_set_brightness(uint8_t value);
 
-//!< Display a value in units of 10^-8 Sieverts (value == 100 equals 1 uSv)
-void display_write_value(uint32_t value);
+/// Display a value in units of 10^-8 Sieverts (value == 100 equals 1 uSv)
+void display_show_radiation(uint32_t uSv_h);
+
+/// Display GM event count from device startup:
+void display_show_counts(uint32_t counts);
