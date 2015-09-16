@@ -85,7 +85,7 @@
 #include <avr/pgmspace.h>	// tools used to store variables in program memory
 #include <avr/sleep.h>		// sleep mode utilities
 #include <util/delay.h>		// some convenient delay functions
-#include <stdlib.h>			// some handy functions like utoa()
+#include <stdlib.h>			// some handy functions like ultoa()
 #include "display.h"        // code to drive the 7-segment display
 
 // Defines
@@ -120,19 +120,15 @@ volatile uint16_t cps;			// GM counts per second, updated once a second
 volatile uint8_t overflow;		// overflow flag
 volatile uint8_t eventflag;	// flag for ISR to tell main loop if a GM event has occurred
 volatile uint8_t tick;		// flag that tells main() when 1 second has passed
-volatile uint32_t total_count; // total GM count from device startup
+volatile uint16_t total_count; // total GM count from device startup
 
 char serbuf[SER_BUFF_LEN];	// serial buffer
 uint8_t mode;				// logging mode, 0 = slow, 1 = fast, 2 = inst
 
-// possible values for display_mode:
-typedef enum {
-	COUNTER,
+enum DisplayMode {
 	RADIATION,
-} DisplayMode;
-
-DisplayMode display_mode;
-
+	COUNTER,
+} display_mode;
 
 // Interrupt service routines
 
@@ -142,7 +138,8 @@ ISR(INT0_vect)
 {
 	if (count < UINT16_MAX)	// check for overflow, if we do overflow just cap the counts at max possible
 		count++; // increase event counter
-	total_count++;
+	if (total_count < UINT16_MAX)
+		total_count++;
 
 	// send a pulse to the PULSE connector
 	// a delay of 100us limits the max CPS to about 8000
@@ -315,7 +312,7 @@ void sendreport(void)
 		
 		// Send CPM value to the serial port
 		uart_putstring_P(PSTR("CPS, "));
-		utoa(cps, serbuf, 10);		// radix 10
+		ultoa(cps, serbuf, 10);		// radix 10
 		uart_putstring(serbuf);
 			
 		uart_putstring_P(PSTR(", CPM, "));
@@ -329,7 +326,7 @@ void sendreport(void)
 		uint32_t usv_scaled = (uint32_t)(cpm*SCALE_FACTOR)/100;	// scale and truncate the integer part
 			
 		// this reports the integer part
-		utoa((uint16_t)(usv_scaled/100), serbuf, 10);	
+		ultoa((uint16_t)(usv_scaled/100), serbuf, 10);	
 		uart_putstring(serbuf);
 			
 		uart_putchar('.');
@@ -338,7 +335,7 @@ void sendreport(void)
 		uint8_t fraction = usv_scaled % 100;
 		if (fraction < 10)
 			uart_putchar('0');	// zero padding for <0.10
-		utoa(fraction, serbuf, 10);
+		ultoa(fraction, serbuf, 10);
 		uart_putstring(serbuf);
 
 		// Tell us what averaging method is being used
@@ -355,9 +352,9 @@ void sendreport(void)
 
 		if (disp_state < 6) {
 			if (display_mode == RADIATION)
-				display_int_value(usv_scaled, 2);
+				display_radiation(usv_scaled);
 			else
-				display_int_value(total_count, 0);
+				display_counts(total_count);
 		}
 	}	
 }
@@ -381,7 +378,7 @@ int main(void)
 	PORTD |= _BV(PD3);	// enable internal pull up resistor on pin connected to button
 
 	// is the button pressed on startup? if so, the display should show counts, not uSv/h:
-	display_mode = ((PIND & _BV(PD3)) == 0) ? COUNTER : RADIATION;
+	display_mode = ((PIND & _BV(PD3)) != 0) ? RADIATION : COUNTER;
 	
 	// Set up external interrupts	
 	// INT0 is triggered by a GM impulse

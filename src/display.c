@@ -126,13 +126,18 @@ void display_turn_on(void)
 	display_set_dots(DP1 | DP2 | DP3 | DP4);
 }
 
-void display_int_value(uint32_t x, int8_t dp)
+char buff[16];
+
+static void display_int_value(uint32_t x, int8_t dp)
 {
-	char buff[12];
 	uint8_t i;
 	if (x < 1000) {
-		utoa(x + 1000, buff, 10);
+		ultoa(x + 1000, buff, 10);
 		buff[0] = ' ';
+		if (dp == 0) {
+			if (buff[1] == '0') buff[1] = ' ';
+			if (buff[2] == '0') buff[2] = ' ';
+		}		
 	} else {
 		ultoa(x, buff, 10);
 	}
@@ -149,3 +154,12 @@ void display_int_value(uint32_t x, int8_t dp)
 	display_set_dots((8 >> dp) & (DP2|DP3));
 }
 
+void display_radiation(uint32_t uSv_mul_100)
+{
+	display_int_value(uSv_mul_100, 2);
+}
+
+void display_counts(uint32_t counts)
+{
+	display_int_value(counts, 0);
+}
