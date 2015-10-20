@@ -135,8 +135,11 @@ static void display_int_value(uint32_t x, int8_t dp)
 		ultoa(x + 1000, buff, 10);
 		buff[0] = ' ';
 		if (dp == 0) {
-			if (buff[1] == '0') buff[1] = ' ';
-			if (buff[2] == '0') buff[2] = ' ';
+			if (buff[1] == '0') {
+				buff[1] = ' ';
+				if (buff[2] == '0')
+					buff[2] = ' ';
+			}
 		}		
 	} else {
 		ultoa(x, buff, 10);
