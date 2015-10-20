@@ -121,7 +121,7 @@ void display_turn_on(void)
 	display_spi_byte(0x76);
 	_delay_ms(NVRAM_DELAY);
 	// run at 100% brightness:
-	display_set_brightness(0);
+	display_set_brightness(255);
 	// display four dots:
 	display_set_dots(DP1 | DP2 | DP3 | DP4);
 }

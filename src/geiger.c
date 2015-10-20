@@ -278,10 +278,10 @@ void checkdisplay(void)
 				display_turn_on(); // this implies 100% brightness
 				break;
 			case 2:
-				display_set_brightness(32); // feels like 50%
+				display_set_brightness(64); // feels like 50%
 				break;
 			case 4:
-				display_set_brightness(96); // feels like 10%
+				display_set_brightness(6); // feels like 10%
 				break;
 			case 6:
 				display_turn_off();          // 0%, hehe
