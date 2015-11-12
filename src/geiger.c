@@ -14,18 +14,22 @@
 	beep on the piezo speaker.  It also outputs an active-high pulse (default 100us) on the PULSE pin, which
 	is also output via a RCA jack for interception in the Geiger Bot app for iOS devices.
 	
-	A pushbutton on the PCB can be used to mute the beep or turn off the display. The following 4 states
+	A pushbutton on the PCB can be used to mute the beep or turn off the display. The following 8 states
 	can be switched via the button:
 	
 	        State | Sound | Display |
 	--------------+-------+---------+
-	  0 (default) |    On |      On |
-	  1           |   Off |      On |
-	  2           |    On |     Off |
-	  3           |   Off |     Off |
+	  0 (default) |    On |    100% |
+	  1           |   Off |    100% |
+	  2           |    On |     50% |
+	  3           |   Off |     50% |
+	  4           |    On |     10% |
+	  5           |   Off |     10% |
+	  6           |    On |     Off |
+	  7           |   Off |     Off |
 	--------------+-------+---------+
 	
-	After 3, the next state is again 0.
+	After 7, the next state is again 0.
 	It is a good idea to turn off the display if it's not needed, as it drains a lot of the power.
 	
 	Equivalent dose, in uSv/h, is written to the display. Being a 4-digit display, the max viewable value
