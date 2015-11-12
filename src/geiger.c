@@ -382,6 +382,7 @@ int main(void)
 	PORTD |= _BV(PD3);	// enable internal pull up resistor on pin connected to button
 
 	// is the button pressed on startup? if so, the display should show counts, not uSv/h:
+	_delay_ms(1);
 	display_mode = ((PIND & _BV(PD3)) != 0) ? RADIATION : COUNTER;
 	
 	// Set up external interrupts	
