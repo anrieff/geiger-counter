@@ -27,14 +27,14 @@ void display_turn_on(void);
 /// turn off the display
 void display_turn_off(void);
 
-/// set the display brightness. The values are 0..254 and are inverted in
-/// meaning; 0 means full brightness, 128 is 50%, 254 is almost dark.
+/// set the display brightness. 255 means full brightness, 128 is 50%, 
+/// 1 is almost dark.
 void display_set_brightness(uint8_t value);
 
 /// print radiation value on the display. The passed value is *100, i.e.,
 /// 13.05 uSv/h is represented as 1305.
 /// Values up to 99.99 uSv/h are represented exactly; 100-999 uSv/h are have
-/// one decimal point; 1mSv/h to 9 mSv/h are represented without a
+/// one decimal digit; 1mSv/h to 9 mSv/h are represented without a
 /// fractional part; still more is represented as "outside limits" (-OL-)
 void display_radiation(uint32_t uSv_mul_100);
 

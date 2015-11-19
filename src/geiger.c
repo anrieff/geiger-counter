@@ -30,7 +30,7 @@
 	--------------+-------+---------+
 	
 	After 7, the next state is again 0.
-	It is a good idea to turn off the display if it's not needed, as it drains a lot of the power.
+	It is a good idea to turn off the display if it's not needed, as it drains significant power.
 	
 	Equivalent dose, in uSv/h, is written to the display. Being a 4-digit display, the max viewable value
 	is 9999 uSv/h, i.e. 9.999 mSv/h. This is a high radiation level, and exposure to that (or higher) amount of
