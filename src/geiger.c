@@ -100,7 +100,7 @@
 #define	BAUD			9600	// Serial BAUD rate
 #define SER_BUFF_LEN	11		// Serial buffer length
 #define THRESHOLD		1000	// CPM threshold for fast avg mode
-#define LONG_PERIOD		60		// # of samples to keep in memory in slow avg mode
+#define LONG_PERIOD		50		// # of samples to keep in memory in slow avg mode
 #define SHORT_PERIOD	5		// # of samples for fast avg mode
 #define SCALE_FACTOR	57		//	CPM to uSv/hr conversion factor (x10,000 to avoid float)
 #define PULSEWIDTH		100		// width of the PULSE output (in microseconds)
@@ -114,17 +114,19 @@ void checkevent(void);	// flash LED and beep the piezo
 void sendreport(void);	// log data over the serial port
 
 // Global variables
-volatile uint8_t nobeep;		// flag used to mute beeper
-volatile uint8_t disp_state;    // display state, [0..3]
-volatile uint8_t statechange;   // display state was recently changed
-volatile uint16_t count;		// number of GM events that has occurred
-volatile uint16_t slowcpm;		// GM counts per minute in slow mode
-volatile uint16_t fastcpm;		// GM counts per minute in fast mode
-volatile uint16_t cps;			// GM counts per second, updated once a second
-volatile uint8_t overflow;		// overflow flag
-volatile uint8_t eventflag;	// flag for ISR to tell main loop if a GM event has occurred
-volatile uint8_t tick;		// flag that tells main() when 1 second has passed
-volatile uint16_t total_count; // total GM count from device startup
+volatile uint8_t nobeep = 0;		// flag used to mute beeper
+volatile uint8_t disp_state = 0;    // display state, [0..7]
+volatile uint8_t statechange = 0;   // display state was recently changed
+volatile uint16_t count = 0;		// number of GM events that has occurred
+volatile uint16_t slowcpm = 0;		// GM counts per minute in slow mode
+volatile uint16_t fastcpm = 0;		// GM counts per minute in fast mode
+volatile uint16_t cps = 0;			// GM counts per second, updated once a second
+volatile uint8_t overflow = 0;		// overflow flag
+volatile uint8_t eventflag = 0;	// flag for ISR to tell main loop if a GM event has occurred
+volatile uint8_t tick = 0;		// flag that tells main() when 1 second has passed
+volatile uint16_t total_count = 0; // total GM count from device startup
+uint8_t buffer[LONG_PERIOD] __attribute__((aligned(32)));	// the sample buffer
+// (the alignment does not serve other purpose than to reposition the buffer in the end of BSS section)
 
 char serbuf[SER_BUFF_LEN];	// serial buffer
 uint8_t mode;				// logging mode, 0 = slow, 1 = fast, 2 = inst
@@ -178,7 +180,6 @@ ISR(INT1_vect)
  */
 ISR(TIMER1_COMPA_vect)
 {
-	static uint8_t buffer[LONG_PERIOD];	// the sample buffer
 	static uint8_t idx;					// sample buffer index
 	static uint16_t fastsum;           // running count of the short period counts
 	static uint8_t lagging_idx = LONG_PERIOD - SHORT_PERIOD; // fast sample window back index
@@ -209,7 +210,7 @@ ISR(TIMER1_COMPA_vect)
 	
 	// Compute CPM based on the last SHORT_PERIOD samples:
 	fastsum = fastsum + new_sample - buffer[lagging_idx];
-	fastcpm = fastsum * (LONG_PERIOD / SHORT_PERIOD);
+	fastcpm = fastsum * (60 / SHORT_PERIOD);
 	
 	// Move to the next entry in the sample buffer
 	if (++idx >= LONG_PERIOD)
@@ -217,6 +218,15 @@ ISR(TIMER1_COMPA_vect)
 	if (++lagging_idx >= LONG_PERIOD)
 		lagging_idx = 0;
 	count = 0;  // reset counter
+#ifdef PARANOID
+	if (slowcpm > 64000) {
+		// assume a bug, which modified buffer[], and slowcpm now holds a "negative" value.
+		// we can't do a meaningful recovery here; we just reset the counters:
+		slowcpm = fastsum = 0;
+		for (new_sample = 0; new_sample < LONG_PERIOD; new_sample++)
+			buffer[new_sample] = 0;
+	}
+#endif
 }
 
 // Functions
@@ -311,7 +321,8 @@ void sendreport(void)
 			cpm = fastcpm;	// report cpm based on last 5 samples
 		} else {
 			mode = 0;
-			cpm = slowcpm;	// report cpm based on last 60 samples
+			// report cpm based on last 50 seconds; scale to represent a full minute:
+			cpm = (uint32_t) slowcpm * 6 / 5;
 		}
 		
 		// Send CPM value to the serial port
@@ -353,7 +364,16 @@ void sendreport(void)
 			
 		// We're done reporting data, output a newline.
 		uart_putchar('\n');	
-
+		
+#ifdef DEBUG
+		uint8_t i;
+		for (i = LONG_PERIOD - 5; i < LONG_PERIOD + 10; i++) {
+				ultoa(buffer[i] + 100, serbuf, 10);
+				uart_putstring(serbuf);
+		}
+		uart_putchar('\n');
+#endif
+		
 		if (disp_state < 6) {
 			if (display_mode == RADIATION)
 				display_radiation(usv_scaled);
@@ -403,7 +423,10 @@ int main(void)
 	TIMSK = _BV(OCIE1A);  // Timer1 overflow interrupt enable
 
 	display_turn_on();
-	
+#ifdef DEBUG
+	uint8_t i = 0;
+	for (i = 0; i < 10; i++) buffer[LONG_PERIOD + i] = 11;
+#endif
 	sei();	// Enable interrupts
 
 	while(1) {	// loop forever

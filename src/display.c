@@ -126,34 +126,35 @@ void display_turn_on(void)
 	display_set_dots(DP1 | DP2 | DP3 | DP4);
 }
 
-char buff[16];
+extern char serbuf[11];
 
 static void display_int_value(uint32_t x, int8_t dp)
 {
 	uint8_t i;
+
 	if (x < 1000) {
-		ultoa(x + 1000, buff, 10);
-		buff[0] = ' ';
+		ultoa(x + 1000, serbuf, 10);
+		serbuf[0] = ' ';
 		if (dp == 0) {
-			if (buff[1] == '0') {
-				buff[1] = ' ';
-				if (buff[2] == '0')
-					buff[2] = ' ';
+			if (serbuf[1] == '0') {
+				serbuf[1] = ' ';
+				if (serbuf[2] == '0')
+					serbuf[2] = ' ';
 			}
 		}		
 	} else {
-		ultoa(x, buff, 10);
+		ultoa(x, serbuf, 10);
 	}
-	char* s = buff + 4;
+	char* s = serbuf + 4;
 	while (*(s++)) dp--;
 	if (dp < 0) {
-		buff[0] = '-';
-		buff[1] = 'O';
-		buff[2] = 'L';
-		buff[3] = '-';
+		serbuf[0] = '-';
+		serbuf[1] = 'O';
+		serbuf[2] = 'L';
+		serbuf[3] = '-';
 	}
 	for (i = 0; i < 4; i++)
-		display_spi_byte(buff[i]);
+		display_spi_byte(serbuf[i]);
 	display_set_dots((8 >> dp) & (DP2|DP3));
 }
 
