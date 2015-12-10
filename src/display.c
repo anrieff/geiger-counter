@@ -173,5 +173,6 @@ void display_show_revision(void)
 	display_spi_byte('r');
 	display_spi_byte('3');
 	display_spi_byte('1');
-	display_spi_byte('7');
+	display_spi_byte('8');
+	display_set_dots(DP1);
 }
