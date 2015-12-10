@@ -41,3 +41,5 @@ void display_radiation(uint32_t uSv_mul_100);
 /// print GM event count on the display. The value should not exceed 9999
 /// (if it does, "-OL-" is displayed).
 void display_counts(uint32_t counts);
+
+void display_show_revision(uint16_t revision);

@@ -167,3 +167,13 @@ void display_counts(uint32_t counts)
 {
 	display_int_value(counts, 0);
 }
+
+void display_show_revision(uint16_t revision)
+{
+	display_spi_byte('r');
+	display_spi_byte('0' + (revision / 100));
+	uint8_t r = revision % 100;
+	display_spi_byte('0' + r / 10);
+	display_spi_byte('0' + r % 10);
+}
+

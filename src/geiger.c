@@ -423,6 +423,7 @@ int main(void)
 	TIMSK = _BV(OCIE1A);  // Timer1 overflow interrupt enable
 
 	display_turn_on();
+	display_show_revision(316);
 #ifdef DEBUG
 	uint8_t i = 0;
 	for (i = 0; i < 10; i++) buffer[LONG_PERIOD + i] = 11;
