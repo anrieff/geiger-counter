@@ -42,4 +42,5 @@ void display_radiation(uint32_t uSv_mul_100);
 /// (if it does, "-OL-" is displayed).
 void display_counts(uint32_t counts);
 
-void display_show_revision(uint16_t revision);
+/// shows the software revision (hardcoded in the .c file)
+void display_show_revision(void);
