@@ -104,6 +104,7 @@
 #define SHORT_PERIOD	5		// # of samples for fast avg mode
 #define SCALE_FACTOR	57		//	CPM to uSv/hr conversion factor (x10,000 to avoid float)
 #define PULSEWIDTH		100		// width of the PULSE output (in microseconds)
+#define CPU_MHZ	(F_CPU/1000000) // MCU speed in MHz. Default is 8, but might be different
 
 // Function prototypes
 void uart_putchar(char c);			// send a character to the serial port
@@ -266,9 +267,9 @@ void checkevent(void)
 		LED_PORT |= _BV(LED_BIT);	// turn on the LED
 		
 		if(!nobeep) {		// check if we're in mute mode
-			TCCR0A |= _BV(COM0A0);	// enable OCR0A output on pin PB2
+			TCCR0A |= _BV(COM0A0);	// enable OCR0A output on the piezo pin
 			TCCR0B |= _BV(CS01);	// set prescaler to clk/8 (1Mhz) or 1us/count
-			OCR0A = 160;	// 160 = toggle OCR0A every 160ms, period = 320us, freq= 3.125kHz
+			OCR0A = 160 * CPU_MHZ / 8;    // toggle OCR0A every 160 us, period = 320us, freq= 3.125kHz
 		}
 		
 		// 10ms delay gives a nice short flash and 'click' on the piezo
@@ -387,8 +388,8 @@ int main(void)
 {	
 	// Configure the UART	
 	// Set baud rate generator based on F_CPU
-	UBRR0H = (unsigned char)(F_CPU/(16UL*BAUD)-1)>>8;
-	UBRR0L = (unsigned char)(F_CPU/(16UL*BAUD)-1);
+	UBRR0H = (unsigned char)((F_CPU/(16UL*BAUD)-1)>>8);
+	UBRR0L = (unsigned char) (F_CPU/(16UL*BAUD)-1);
 	
 	// Enable USART transmitter and receiver
 	UCSR0B = (1<<RXEN0) | (1<<TXEN0);
