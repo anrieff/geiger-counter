@@ -20,46 +20,22 @@
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-/* 
- * Pinout:
- * PB0 - power on/off
- * PD4 - SCL
- * PD5 - SDA
- * 
- * The display we're interfacing is the SparkFun serial display (COM-11442)
- * 
- * Header to display pinout (5-pin header, ordering from left to right 
- * if viewed from top of the PCB):
- *
- * +-----+---------------------------+--------------------------+ 
- * | pin | name                      | pin name on the display. |
- * +-----+---------------------------+--------------------------+
- * |   1 | Vdd                       | VCC                      |
- * |   2 | GND / also device select  | /SS                      |
- * |   3 | SCL                       | SCK                      |
- * |   4 | SDA                       | SDI                      |
- * |   5 | GND                       | GND                      |
- * +-----+---------------------------+--------------------------+
- * 
- */
 
 #include <avr/io.h>			// this contains the AVR IO port definitions
 #include <avr/pgmspace.h>	// tools used to store variables in program memory
 #include <avr/sleep.h>		// sleep mode utilities
 #include <util/delay.h>		// some convenient delay functions
 #include <stdlib.h>
-
-#define	F_CPU			8000000	// AVR clock speed in Hz
-
-// pinout:
-#define D_PWR 0
-#define D_SCL 4
-#define D_SDA 5
+#include "pinout.h"
+#include "characters.h"
 
 // constants:
 #define NVRAM_DELAY 2 // milliseconds
 
 uint8_t display_on = 0;
+uint8_t dots;
+uint8_t display[4];
+uint8_t brightness;
 
  // these are OR-able masks for display_set_dots()
 enum {
@@ -67,45 +43,24 @@ enum {
     DP2 = 2,
     DP3 = 4,
     DP4 = 8,            // decimal points
-    DIVIDED = 16,       // the central two dots
-    APOSTROPHE = 32     // the apostrophe between characters 3 and 4
 };
 
 
 void display_turn_off(void)
 {
-	PORTD &= ~(_BV(D_SCL) | _BV(D_SDA));
-	PORTB &= ~(_BV(D_PWR));
 	display_on = 0;
-}
-
-static void display_spi_byte(uint8_t byte)
-{
-	uint8_t i;
-	for (i = 0; i < 8; i++) {
-		if (byte & 0x80)
-			PORTD |=  (_BV(D_SDA));
-		else
-			PORTD &= ~(_BV(D_SDA));
-		_delay_us(25);
-		PORTD |=  (_BV(D_SCL));
-		_delay_us(25);
-		PORTD &= ~(_BV(D_SCL));
-		byte <<= 1;
-	}
+	GFET_PORT &= ~_BV(GFET_BIT);
 }
 
 static void display_set_dots(uint8_t mask)
 {
-	display_spi_byte(0x77);
-	display_spi_byte(mask);
+	dots = mask;
 }
 
 void display_set_brightness(uint8_t value)
 {
 	// setup brightness:
-	display_spi_byte(0x7a);
-	display_spi_byte(value);
+	brightness = value;
 	_delay_ms(NVRAM_DELAY);
 }
 
@@ -113,24 +68,23 @@ void display_turn_on(void)
 {
 	if (display_on) return;
 	display_on = 1;
-	PORTB |= _BV(D_PWR);
 
-	// wait for it to initialize:
-	_delay_ms(200);
-	// send a reset:
-	display_spi_byte(0x76);
-	_delay_ms(NVRAM_DELAY);
+	GFET_PORT |= _BV(GFET_BIT);
+
 	// run at 100% brightness:
 	display_set_brightness(255);
 	// display four dots:
 	display_set_dots(DP1 | DP2 | DP3 | DP4);
+
+	DISP_ACTIVE_DIGIT(3);
+	DISP_OUT_CHAR(num5);
 }
 
 extern char serbuf[11];
 
 static void display_int_value(uint32_t x, int8_t dp)
 {
-	uint8_t i;
+	//uint8_t i;
 
 	if (x < 1000) {
 		ultoa(x + 1000, serbuf, 10);
@@ -148,13 +102,13 @@ static void display_int_value(uint32_t x, int8_t dp)
 	char* s = serbuf + 4;
 	while (*(s++)) dp--;
 	if (dp < 0) {
-		serbuf[0] = '-';
-		serbuf[1] = 'O';
-		serbuf[2] = 'L';
-		serbuf[3] = '-';
+		display[0] = cDASH; // '-'
+		display[1] = cO;    // 'O'
+		display[2] = cL;    // 'L'
+		display[3] = cDASH; // '-'
 	}
-	for (i = 0; i < 4; i++)
-		display_spi_byte(serbuf[i]);
+	//for (i = 0; i < 4; i++)
+	//	display_spi_byte(serbuf[i]); FIXME!
 	display_set_dots((8 >> dp) & (DP2|DP3));
 }
 
@@ -170,9 +124,9 @@ void display_counts(uint32_t counts)
 
 void display_show_revision(void)
 {
-	display_spi_byte('r');
-	display_spi_byte('3');
-	display_spi_byte('1');
-	display_spi_byte('8');
-	display_set_dots(DP1);
+	display[0] = cR;    // 'r'
+	display[1] = num3;  // '3'
+	display[2] = num4;  // '4'
+	display[3] = num2;  // '2'
+	display_set_dots(DP1); // "r.342"
 }

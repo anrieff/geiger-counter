@@ -91,12 +91,12 @@
 #include <util/delay.h>		// some convenient delay functions
 #include <stdlib.h>			// some handy functions like ultoa()
 #include "display.h"        // code to drive the 7-segment display
+#include "pinout.h"
 
 // Defines
-#define VERSION			"1.50"
+#define VERSION			"2.00"
 #define URL				"http://LVA.bg/products/geiger-counter"
 
-#define	F_CPU			8000000	// AVR clock speed in Hz
 #define	BAUD			9600	// Serial BAUD rate
 #define SER_BUFF_LEN	11		// Serial buffer length
 #define THRESHOLD		1000	// CPM threshold for fast avg mode
@@ -125,8 +125,7 @@ volatile uint8_t overflow = 0;		// overflow flag
 volatile uint8_t eventflag = 0;	// flag for ISR to tell main loop if a GM event has occurred
 volatile uint8_t tick = 0;		// flag that tells main() when 1 second has passed
 volatile uint16_t total_count = 0; // total GM count from device startup
-uint8_t buffer[LONG_PERIOD] __attribute__((aligned(32)));	// the sample buffer
-// (the alignment does not serve other purpose than to reposition the buffer in the end of BSS section)
+uint8_t buffer[LONG_PERIOD];	// the sample buffer
 
 char serbuf[SER_BUFF_LEN];	// serial buffer
 uint8_t mode;				// logging mode, 0 = slow, 1 = fast, 2 = inst
@@ -150,9 +149,9 @@ ISR(INT0_vect)
 	// send a pulse to the PULSE connector
 	// a delay of 100us limits the max CPS to about 8000
 	// you can comment out this code and increase the max CPS possible (up to 65535!)
-	PORTD |= _BV(PD6);	// set PULSE output high
+	PULSE_PORT |= _BV(PULSE_BIT);	// set PULSE output high
 	_delay_us(PULSEWIDTH);
-	PORTD &= ~(_BV(PD6));	// set pulse output low
+	PULSE_PORT &= ~(_BV(PULSE_BIT));	// set pulse output low
 		
 	eventflag = 1;	// tell main program loop that a GM pulse has occurred
 }
@@ -165,7 +164,7 @@ ISR(INT1_vect)
 {
 	_delay_ms(25);							// slow down interrupt calls (crude debounce)
 	
-	if ((PIND & _BV(PD3)) == 0)	{			// is button still pressed?
+	if ((BTN_PIN & _BV(BTN_BIT)) == 0)	{			// is button still pressed?
 		disp_state = (disp_state + 1) & 7;	// increment state
 		nobeep = disp_state & 1;
 		statechange = 1;
@@ -236,8 +235,8 @@ void uart_putchar(char c)
 {
 	if (c == '\n') uart_putchar('\r');	// Windows-style CRLF
   
-	loop_until_bit_is_set(UCSRA, UDRE);	// wait until UART is ready to accept a new character
-	UDR = c;							// send 1 character
+	loop_until_bit_is_set(UCSR0A, UDRE0);	// wait until UART is ready to accept a new character
+	UDR0 = c;							// send 1 character
 }
 
 // Send a string in SRAM to the UART
@@ -264,7 +263,7 @@ void checkevent(void)
 	if (eventflag) {		// a GM event has occurred, do something about it!
 		eventflag = 0;		// reset flag as soon as possible, in case another ISR is called while we're busy
 
-		PORTB |= _BV(PB4);	// turn on the LED
+		LED_PORT |= _BV(LED_BIT);	// turn on the LED
 		
 		if(!nobeep) {		// check if we're in mute mode
 			TCCR0A |= _BV(COM0A0);	// enable OCR0A output on pin PB2
@@ -275,7 +274,7 @@ void checkevent(void)
 		// 10ms delay gives a nice short flash and 'click' on the piezo
 		_delay_ms(10);	
 			
-		PORTB &= ~(_BV(PB4));	// turn off the LED
+		LED_PORT &= ~(_BV(LED_BIT));	// turn off the LED
 		
 		TCCR0B = 0;				// disable Timer0 since we're no longer using it
 		TCCR0A &= ~(_BV(COM0A0));	// disconnect OCR0A from Timer0, this avoids occasional HVPS whine after beep
@@ -388,28 +387,28 @@ int main(void)
 {	
 	// Configure the UART	
 	// Set baud rate generator based on F_CPU
-	UBRRH = (unsigned char)(F_CPU/(16UL*BAUD)-1)>>8;
-	UBRRL = (unsigned char)(F_CPU/(16UL*BAUD)-1);
+	UBRR0H = (unsigned char)(F_CPU/(16UL*BAUD)-1)>>8;
+	UBRR0L = (unsigned char)(F_CPU/(16UL*BAUD)-1);
 	
 	// Enable USART transmitter and receiver
-	UCSRB = (1<<RXEN) | (1<<TXEN);
+	UCSR0B = (1<<RXEN0) | (1<<TXEN0);
 
 	uart_putstring_P(PSTR("LVA Geiger Counter " VERSION "\n" URL "\n"));
 
 	// Set up AVR IO ports
-	DDRB = _BV(PB4) | _BV(PB2) | _BV(PB0);  // set pins connected to LED, piezo and display-vdd as outputs
-	DDRD = _BV(PD6) | _BV(PD5) | _BV(PD4);	// configure PULSE output and SPI pins
-	PORTD |= _BV(PD3);	// enable internal pull up resistor on pin connected to button
+	DDRB = CONF_DDRB;
+	DDRC = CONF_DDRC;
+	DDRD = CONF_DDRD;
+	BTN_WPU |= _BV(BTN_BIT);	// enable internal pull up resistor on pin connected to button
 
 	// is the button pressed on startup? if so, the display should show counts, not uSv/h:
 	_delay_ms(1);
-	display_mode = ((PIND & _BV(PD3)) != 0) ? RADIATION : COUNTER;
+	display_mode = ((BTN_PIN & _BV(BTN_BIT)) != 0) ? RADIATION : COUNTER;
 	
 	// Set up external interrupts	
 	// INT0 is triggered by a GM impulse
-	// INT1 is triggered by pushing the button
-	MCUCR |= _BV(ISC01) | _BV(ISC11);	// Config interrupts on falling edge of INT0 and INT1
-	GIMSK |= _BV(INT0) | _BV(INT1);		// Enable external interrupts on pins INT0 and INT1
+	EICRA |= _BV(ISC01);	// Config interrupts on falling edge of INT0
+	EIMSK |= _BV(INT0);		// Enable external interrupts on pins INT0
 	
 	// Configure the Timers		
 	// Set up Timer0 for tone generation
@@ -420,7 +419,7 @@ int main(void)
 	// Set up Timer1 for 1 second interrupts
 	TCCR1B = _BV(WGM12) | _BV(CS12);  // CTC mode, prescaler = 256 (32us ticks)
 	OCR1A = 31250;	// 32us * 31250 = 1 sec
-	TIMSK = _BV(OCIE1A);  // Timer1 overflow interrupt enable
+	TIMSK1 = _BV(OCIE1A);  // Timer1 overflow interrupt enable
 
 	display_turn_on();
 	display_show_revision();

@@ -30,17 +30,17 @@ PROGRAM		= geiger
 OBJECTS		= \
 	geiger.o \
 	display.o
-DEVICE		= attiny2313
-CLOCK		= 8000000
+DEVICE		= atmega88p
+CLOCK		= 6000000
 PROGRAMMER	= usbtiny
 PORT		= usb
 
 # Fuse configuration:
 # For a really nice guide to AVR fuses, see http://www.engbedded.com/fusecalc/
-# LFUSE: SUT0, CKSEL0 (Ext Xtal 8+Mhz, 0ms startup time)
-LFUSE		= 0xEE
+# LFUSE: SUT0, CKSEL0, CKSEL1 (Ext Xtal 3-8Mhz, 0ms startup time)
+LFUSE		= 0xEC
 # HFUSE: SPIEN, BODLEVEL0 (Serial programming enabled, Brownout = 1.8V
-HFUSE		= 0xDD
+HFUSE		= 0xDE
 # EFUSE: no fuses programmed
 EFUSE		= 0xFF
 
@@ -80,8 +80,11 @@ clean:
 geiger.elf: $(OBJECTS)
 	$(COMPILE) -o $@ $(OBJECTS) $(LDFLAGS)
 
-%.o: %.c
-	$(COMPILE) -c $< -o $@
+geiger.o: geiger.c display.h pinout.h
+	$(COMPILE) -c geiger.c -o $@
+
+display.o: display.h pinout.h
+	$(COMPILE) -c display.c -o $@
 
 # Targets for code debugging and analysis:
 disasm:	$(PROGRAM).elf
