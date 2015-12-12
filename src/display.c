@@ -73,18 +73,17 @@ void display_turn_on(void)
 
 	// run at 100% brightness:
 	display_set_brightness(255);
+	display[0] = display[1] = display[2] = display[3] = 0;
 	// display four dots:
 	display_set_dots(DP1 | DP2 | DP3 | DP4);
-
-	DISP_ACTIVE_DIGIT(3);
-	DISP_OUT_CHAR(num5);
 }
 
 extern char serbuf[11];
+const uint8_t DIGIT_MASKS[10] = { num0, num1, num2, num3, num4, num5, num6, num7, num8, num9 };
 
 static void display_int_value(uint32_t x, int8_t dp)
 {
-	//uint8_t i;
+	uint8_t i;
 
 	if (x < 1000) {
 		ultoa(x + 1000, serbuf, 10);
@@ -107,8 +106,8 @@ static void display_int_value(uint32_t x, int8_t dp)
 		display[2] = cL;    // 'L'
 		display[3] = cDASH; // '-'
 	}
-	//for (i = 0; i < 4; i++)
-	//	display_spi_byte(serbuf[i]); FIXME!
+	for (i = 0; i < 4; i++)
+		display[i] = (serbuf[i] == ' ') ? mEMPTY : DIGIT_MASKS[serbuf[i] - '0'];
 	display_set_dots((8 >> dp) & (DP2|DP3));
 }
 
@@ -129,4 +128,16 @@ void display_show_revision(void)
 	display[2] = num4;  // '4'
 	display[3] = num2;  // '2'
 	display_set_dots(DP1); // "r.342"
+}
+
+void display_tasks(void)
+{
+	static uint8_t digit;
+	DISP_BLANK();
+	digit = (digit + 1) & 3;
+	uint8_t ch = display[digit];
+	uint8_t dot = (dots >> digit) & 1;
+	DISP_OUT_DP(dot);
+	DISP_OUT_CHAR(ch);
+	DISP_ACTIVE_DIGIT(digit);
 }

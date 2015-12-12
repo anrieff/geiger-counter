@@ -157,28 +157,9 @@ ISR(INT0_vect)
 	eventflag = 1;	// tell main program loop that a GM pulse has occurred
 }
 
-//	Pin change interrupt for pin INT1 (pushbutton)
-//	If the user pushes the button, this interrupt is executed.
-//	We need to be careful about switch bounce, which will make the interrupt
-//	execute multiple times if we're not careful.
-ISR(INT1_vect)
-{
-	_delay_ms(25);							// slow down interrupt calls (crude debounce)
-	
-	if ((BTN_PIN & _BV(BTN_BIT)) == 0)	{			// is button still pressed?
-		disp_state = (disp_state + 1) & 7;	// increment state
-		nobeep = disp_state & 1;
-		statechange = 1;
-	}
-	
-	EIFR |= _BV(INTF1);						// clear interrupt flag to avoid executing ISR again due to switch bounce
-}
-
-/*	Timer1 compare interrupt 
- *	This interrupt is called every time TCNT1 reaches OCR1A and is reset back to 0 (CTC mode).
- *  Timer1 is setup so this happens once a second.
- */
-ISR(TIMER1_COMPA_vect)
+// this is part of the Timer1 interrupt routine. The ISR calls this code exactly
+// once per second.
+void once_per_second_tasks(void)
 {
 	static uint8_t idx;					// sample buffer index
 	static uint16_t fastsum;           // running count of the short period counts
@@ -227,6 +208,38 @@ ISR(TIMER1_COMPA_vect)
 			buffer[new_sample] = 0;
 	}
 #endif
+}
+
+void once_per_16ms_tasks(void)
+{
+	static uint8_t last_button_state = 0;
+	uint8_t button_state = !!(BTN_PIN & _BV(BTN_BIT));
+
+	if (button_state != last_button_state) {
+		last_button_state = button_state;
+		if (button_state == 0) {
+			// button has just been released
+			disp_state = (disp_state + 1) & 7;	// increment state
+			nobeep = disp_state & 1;
+			statechange = 1;
+		}
+	}
+}
+
+/*	Timer1 compare interrupt 
+ *	This interrupt is called every time TCNT1 reaches OCR1A and is reset back to 0 (CTC mode).
+ *  Timer1 is setup so this happens 1000 times per second.
+ */
+ISR(TIMER1_COMPA_vect)
+{
+	static uint16_t ms = 0; // where are we within each second (0-999)
+	PULSE_PORT |= _BV(PULSE_BIT);
+	if (++ms == 1000) ms = 0; // warp back
+
+	if (display_on  ) display_tasks(); // update the display
+	if (ms == 0)      once_per_second_tasks(); // handle stats gathering
+	if (ms % 16 == 0) once_per_16ms_tasks();   // handle button state
+	PULSE_PORT &= ~_BV(PULSE_BIT);
 }
 
 // Functions
@@ -417,9 +430,9 @@ int main(void)
 	TCCR0A = (0<<COM0A1) | (1<<COM0A0) | (0<<WGM02) |  (1<<WGM01) | (0<<WGM00);
 	TCCR0B = 0;	// stop Timer0 (no sound)
 
-	// Set up Timer1 for 1 second interrupts
-	TCCR1B = _BV(WGM12) | _BV(CS12);  // CTC mode, prescaler = 256 (32us ticks)
-	OCR1A = 31250;	// 32us * 31250 = 1 sec
+	// Set up Timer1 for 1 ms interrupts
+	TCCR1B = _BV(WGM12) | _BV(CS11);  // CTC mode, prescaler = 8 (1 or 1.3333 us ticks)
+	OCR1A = 125 * CPU_MHZ;	// 8MHz: 1us * 1000 = 1 ms; 6MHz: 1.33333 us * 750 = 1ms
 	TIMSK1 = _BV(OCIE1A);  // Timer1 overflow interrupt enable
 
 	display_turn_on();

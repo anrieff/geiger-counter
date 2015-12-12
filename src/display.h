@@ -21,6 +21,8 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+extern uint8_t display_on; //!< whether the display is turned on.
+
 /// turn on the display (the display will be initialized to four dots)
 void display_turn_on(void);
 
@@ -44,3 +46,7 @@ void display_counts(uint32_t counts);
 
 /// shows the software revision (hardcoded in the .c file)
 void display_show_revision(void);
+
+/// function that handles display multiplexing. Should be called frequently,
+/// more than 500 times per second.
+void display_tasks(void);

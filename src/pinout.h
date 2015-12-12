@@ -82,15 +82,15 @@
 
 // output the bitmask 'x' on display segs A-G (A = bit 0, B = bit 1, etc...);
 #define DISP_OUT_CHAR(x) \
-	PORTC = (x) & 0x3f; \
+	PORTC = (x) & 0x3f;  \
 	PORTB = (PORTB & 0xfe) | ((x >> 6) & 1)
 
-// output the decimal point (dp = 0: no decimal point; dp = 1 has decimal point);
+// output the decimal point (dp = 0: no decimal point; dp = 1: has decimal point);
 #define DISP_OUT_DP(dp) \
-	PORTD = (PORTD & 0xef) | ((dp & 1) << 4)
+	PORTD = (PORTD & 0xef) | (dp << 4)
 
 // blanks the display:
-#define DISP_BLANK \
+#define DISP_BLANK() \
 	PORTB &= 0xc3
 
 // sets the actively shown digit, 0-3 (by manipulating FETs):

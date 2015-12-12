@@ -83,7 +83,7 @@ geiger.elf: $(OBJECTS)
 geiger.o: geiger.c display.h pinout.h
 	$(COMPILE) -c geiger.c -o $@
 
-display.o: display.h pinout.h
+display.o: display.c display.h pinout.h characters.h
 	$(COMPILE) -c display.c -o $@
 
 # Targets for code debugging and analysis:
