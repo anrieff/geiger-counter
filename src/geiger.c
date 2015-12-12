@@ -100,7 +100,7 @@
 #define	BAUD			9600	// Serial BAUD rate
 #define SER_BUFF_LEN	11		// Serial buffer length
 #define THRESHOLD		1000	// CPM threshold for fast avg mode
-#define LONG_PERIOD		50		// # of samples to keep in memory in slow avg mode
+#define LONG_PERIOD		60		// # of samples to keep in memory in slow avg mode
 #define SHORT_PERIOD	5		// # of samples for fast avg mode
 #define SCALE_FACTOR	57		//	CPM to uSv/hr conversion factor (x10,000 to avoid float)
 #define PULSEWIDTH		100		// width of the PULSE output (in microseconds)
@@ -329,8 +329,8 @@ void sendreport(void)
 			cpm = fastcpm;	// report cpm based on last 5 samples
 		} else {
 			mode = 0;
-			// report cpm based on last 50 seconds; scale to represent a full minute:
-			cpm = (uint32_t) slowcpm * 6 / 5;
+			// report cpm based on last 60 seconds
+			cpm = (uint32_t) slowcpm;
 		}
 		
 		// Send CPM value to the serial port
