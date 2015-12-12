@@ -49,6 +49,9 @@ enum {
 void display_turn_off(void)
 {
 	display_on = 0;
+	// disconnect global FET from Timer0:
+	TCCR0A &= ~(_BV(COM0B0)|_BV(COM0B1));
+	// set it to zero here:
 	GFET_PORT &= ~_BV(GFET_BIT);
 }
 
@@ -61,6 +64,7 @@ void display_set_brightness(uint8_t value)
 {
 	// setup brightness:
 	brightness = value;
+	OCR0B = (uint16_t) OCR0A * brightness / 255;
 	_delay_ms(NVRAM_DELAY);
 }
 
@@ -69,13 +73,15 @@ void display_turn_on(void)
 	if (display_on) return;
 	display_on = 1;
 
-	GFET_PORT |= _BV(GFET_BIT);
-
-	// run at 100% brightness:
-	display_set_brightness(255);
 	display[0] = display[1] = display[2] = display[3] = 0;
 	// display four dots:
 	display_set_dots(DP1 | DP2 | DP3 | DP4);
+
+	// connect the FET control to Timer0:
+	TCCR0A |= _BV(COM0B1);
+
+	// run at 100% brightness:
+	display_set_brightness(255);
 }
 
 extern char serbuf[11];
@@ -125,9 +131,9 @@ void display_show_revision(void)
 {
 	display[0] = cR;    // 'r'
 	display[1] = num3;  // '3'
-	display[2] = num4;  // '4'
-	display[3] = num2;  // '2'
-	display_set_dots(DP1); // "r.342"
+	display[2] = num2;  // '2'
+	display[3] = num5;  // '5'
+	display_set_dots(DP1); // "r.325"
 }
 
 void display_tasks(void)

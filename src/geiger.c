@@ -233,13 +233,11 @@ void once_per_16ms_tasks(void)
 ISR(TIMER1_COMPA_vect)
 {
 	static uint16_t ms = 0; // where are we within each second (0-999)
-	PULSE_PORT |= _BV(PULSE_BIT);
 	if (++ms == 1000) ms = 0; // warp back
 
 	if (display_on  ) display_tasks(); // update the display
 	if (ms == 0)      once_per_second_tasks(); // handle stats gathering
 	if (ms % 16 == 0) once_per_16ms_tasks();   // handle button state
-	PULSE_PORT &= ~_BV(PULSE_BIT);
 }
 
 // Functions
@@ -281,8 +279,6 @@ void checkevent(void)
 		
 		if(!nobeep) {		// check if we're in mute mode
 			TCCR0A |= _BV(COM0A0);	// enable OCR0A output on the piezo pin
-			TCCR0B |= _BV(CS01);	// set prescaler to clk/8 (1Mhz) or 1us/count
-			OCR0A = 160 * CPU_MHZ / 8;    // toggle OCR0A every 160 us, period = 320us, freq= 3.125kHz
 		}
 		
 		// 10ms delay gives a nice short flash and 'click' on the piezo
@@ -290,8 +286,7 @@ void checkevent(void)
 			
 		LED_PORT &= ~(_BV(LED_BIT));	// turn off the LED
 		
-		TCCR0B = 0;				// disable Timer0 since we're no longer using it
-		TCCR0A &= ~(_BV(COM0A0));	// disconnect OCR0A from Timer0, this avoids occasional HVPS whine after beep
+		TCCR0A &= ~(_BV(COM0A0));	// disconnect OCR0A from Timer0
 	}	
 }
 
@@ -424,11 +419,19 @@ int main(void)
 	EICRA |= _BV(ISC01);	// Config interrupts on falling edge of INT0
 	EIMSK |= _BV(INT0);		// Enable external interrupts on pins INT0
 	
-	// Configure the Timers		
-	// Set up Timer0 for tone generation
-	// Toggle OC0A (pin PB2) on compare match and set timer to CTC mode
-	TCCR0A = (0<<COM0A1) | (1<<COM0A0) | (0<<WGM02) |  (1<<WGM01) | (0<<WGM00);
-	TCCR0B = 0;	// stop Timer0 (no sound)
+	// Configure the Timers
+	// Set up Timer0 for tone generation and PWM of display. When both compare units are on, the operation is:
+	// 1) Timer increments happen at fosc/8, i.e. 1.0 us or 1.333 us (on 8MHz/6MHz crystal, respectively).
+	// 2) Counter increases until 160 (@8MHz) or 120 (@6MHz) and then resets (fast PWM mode, #7)
+	// 3) At each reset, toggle OC0A (pin PD6 - Piezo)
+	// 4) PWM the OC0B (pin PD5 - Global display FET) in non-inverting configuration.
+
+	// Actually, the setup here is simpler: we just select WGM = 7 (fast PWM with reset@OCR0A),
+	// and fosc/8 increments. The respective pins are connected to Timer0 as required:
+	TCCR0A = (1 << WGM01) | (1 << WGM00);
+	TCCR0B = (1 << WGM02) | (1 << CS01);
+	OCR0A = 20 * CPU_MHZ;
+	OCR0B = OCR0A / 2; // 50% brightness
 
 	// Set up Timer1 for 1 ms interrupts
 	TCCR1B = _BV(WGM12) | _BV(CS11);  // CTC mode, prescaler = 8 (1 or 1.3333 us ticks)
