@@ -14,28 +14,33 @@
 	beep on the piezo speaker.  It also outputs an active-high pulse (default 100us) on the PULSE pin, which
 	is also output via a RCA jack for interception in the Geiger Bot app for iOS devices.
 	
-	A pushbutton on the PCB can be used to mute the beep or turn off the display. The following 8 states
+	A pushbutton on the PCB can be used to mute the beep or turn off the display. The following 6 states
 	can be switched via the button:
 	
-	        State | Sound | Display |
-	--------------+-------+---------+
-	  0 (default) |    On |    100% |
-	  1           |   Off |    100% |
-	  2           |    On |     50% |
-	  3           |   Off |     50% |
-	  4           |    On |     10% |
-	  5           |   Off |     10% |
-	  6           |    On |     Off |
-	  7           |   Off |     Off |
-	--------------+-------+---------+
+	        State | Sound |  Display  |
+	--------------+-------+-----------+
+	  0 (default) |    On | Radiation |
+	  1           |   Off | Radiation |
+	  2           |    On | GM counts |
+	  3           |   Off | GM counts |
+	  4           |    On |       Off |
+	  5           |   Off |       Off |
+	--------------+-------+-----------+
 	
-	After 7, the next state is again 0.
+	After 5, the next state is again 0.
 	It is a good idea to turn off the display if it's not needed, as it drains significant power.
 	
-	Equivalent dose, in uSv/h, is written to the display. Being a 4-digit display, the max viewable value
-	is 9999 uSv/h, i.e. 9.999 mSv/h. This is a high radiation level, and exposure to that (or higher) amount of
-	radiation should be alarming (the dose is not lethal for durations of less than a day, but is almost
-	certainly lethal for a month or more).
+	In "Radiation" mode, the display shows the computed equivalent dose, in uSv/h.
+	Being a 4-digit display, the max viewable value is 9999 uSv/h, i.e. 9.999 mSv/h. This is a high
+	radiation level, and exposure to that (or higher) amount of	radiation should be alarming
+	(the dose is not lethal for durations of less than a day, but is almost	certainly lethal for a month
+	 or more).
+
+	In "GM counts" mode, the display shows the number of GM events since device turn-on. The max 
+	directly displayable value is 9999, after that the display would show "10.00", which is meant to mean
+	"10.0 k". In the same maner, the display could show "321.5", which means that more than 321500 particles
+	have been counted. The max value would be "9999.", i.e., almost 10 million samples (equivalent to 
+	around a year of sampling at typical background doses).
 
 	A running average of the detected counts per second (CPS), counts per minute (CPM), and equivalent dose
 	(uSv/hr) is output on the serial port once per second. The dose is based on information collected from 
@@ -131,11 +136,6 @@ uint8_t buffer[LONG_PERIOD];	// the sample buffer
 char serbuf[SER_BUFF_LEN];	// serial buffer
 uint8_t mode;				// logging mode, 0 = slow, 1 = fast, 2 = inst
 
-enum DisplayMode {
-	RADIATION,
-	COUNTER,
-} display_mode;
-
 // Interrupt service routines
 
 //	Pin change interrupt for pin INT0
@@ -219,7 +219,7 @@ void once_per_16ms_tasks(void)
 		last_button_state = button_state;
 		if (button_state == 0) {
 			// button has just been released
-			disp_state = (disp_state + 1) & 7;	// increment state
+			disp_state = (disp_state + 1) % 6;	// increment state
 			nobeep = disp_state & 1;
 			statechange = 1;
 		}
@@ -297,16 +297,10 @@ void checkdisplay(void)
 		statechange = 0;
 		switch (disp_state) {
 			case 0:
-				display_turn_on(); // this implies 100% brightness
-				break;
-			case 2:
-				display_set_brightness(64); // feels like 50%
+				display_turn_on();
 				break;
 			case 4:
-				display_set_brightness(6); // feels like 10%
-				break;
-			case 6:
-				display_turn_off();          // 0%, hehe
+				display_turn_off();
 				break;
 		}
 	}
@@ -382,8 +376,8 @@ void sendreport(void)
 		uart_putchar('\n');
 #endif
 		
-		if (disp_state < 6) {
-			if (display_mode == RADIATION)
+		if (disp_state < 4) {
+			if (disp_state < 2)
 				display_radiation(usv_scaled);
 			else
 				display_counts(total_count);
@@ -409,10 +403,6 @@ int main(void)
 	DDRC = CONF_DDRC;
 	DDRD = CONF_DDRD;
 	BTN_WPU |= _BV(BTN_BIT);	// enable internal pull up resistor on pin connected to button
-
-	// is the button pressed on startup? if so, the display should show counts, not uSv/h:
-	_delay_ms(1);
-	display_mode = ((BTN_PIN & _BV(BTN_BIT)) != 0) ? RADIATION : COUNTER;
 	
 	// Set up external interrupts	
 	// INT0 is triggered by a GM impulse
