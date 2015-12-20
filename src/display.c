@@ -87,7 +87,7 @@ void display_turn_on(void)
 extern char serbuf[11];
 const uint8_t DIGIT_MASKS[10] = { num0, num1, num2, num3, num4, num5, num6, num7, num8, num9 };
 
-static void display_int_value(uint32_t x, int8_t dp)
+static void display_int_value(uint32_t x, int8_t dp, uint8_t dp_mask)
 {
 	uint8_t i;
 
@@ -111,20 +111,25 @@ static void display_int_value(uint32_t x, int8_t dp)
 		display[1] = cO;    // 'O'
 		display[2] = cL;    // 'L'
 		display[3] = cDASH; // '-'
+		display_set_dots(0);
+		return;
 	}
 	for (i = 0; i < 4; i++)
 		display[i] = (serbuf[i] == ' ') ? mEMPTY : DIGIT_MASKS[serbuf[i] - '0'];
-	display_set_dots((8 >> dp) & (DP2|DP3));
+	display_set_dots((8 >> dp) & dp_mask);
 }
 
 void display_radiation(uint32_t uSv_mul_100)
 {
-	display_int_value(uSv_mul_100, 2);
+	display_int_value(uSv_mul_100, 2, (DP2|DP3));
 }
 
 void display_counts(uint32_t counts)
 {
-	display_int_value(counts, 0);
+	if (counts <= 9999)
+		display_int_value(counts, 0, 0);
+	else
+		display_int_value(counts / 10, 2, (DP2|DP3|DP4));
 }
 
 void display_show_revision(void)

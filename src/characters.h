@@ -57,7 +57,7 @@
 #define cI (mB|mC)
 #define cL (mD|mE|mF)
 #define cN (mC|mE|mG)
-#define cO (mC|mD|mE|mG)
+#define cO num0
 #define cP (mA|mE|mB|mE|mF|mG)
 #define cR (mE|mG)
 #define cS (mA|mC|mD|mF|mG)
