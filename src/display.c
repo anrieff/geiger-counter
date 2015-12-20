@@ -25,17 +25,19 @@
 #include <avr/pgmspace.h>	// tools used to store variables in program memory
 #include <avr/sleep.h>		// sleep mode utilities
 #include <util/delay.h>		// some convenient delay functions
+#include <avr/eeprom.h>     // for read/write to EEPROM memory
 #include <stdlib.h>
 #include "pinout.h"
 #include "characters.h"
+#include "main.h"
 
 // constants:
 #define NVRAM_DELAY 2 // milliseconds
 
 uint8_t display_on = 0;
-uint8_t dots;
 uint8_t display[4];
-uint8_t brightness;
+uint8_t raw_brightness; // PWM values, 0-255
+uint8_t user_brightness; // user-friendly values, 1-9.
 
  // these are OR-able masks for display_set_dots()
 enum {
@@ -57,20 +59,36 @@ void display_turn_off(void)
 
 static void display_set_dots(uint8_t mask)
 {
-	dots = mask;
+	display[0] = (display[0] & 0x7f) | ((mask & 1) << 7);
+	display[1] = (display[1] & 0x7f) | ((mask & 2) << 6);
+	display[2] = (display[2] & 0x7f) | ((mask & 4) << 5);
+	display[3] = (display[3] & 0x7f) | ((mask & 8) << 4);
 }
 
-void display_set_brightness(uint8_t value)
+
+void display_set_raw_brightness(uint8_t value)
 {
 	// setup brightness:
-	brightness = value;
-	OCR0B = (uint16_t) OCR0A * brightness / 255;
-	_delay_ms(NVRAM_DELAY);
+	raw_brightness = value;
+	OCR0B = ((uint16_t) OCR0A * raw_brightness + 128) / 255;
+}
+
+void display_set_user_friendly_brightness(uint8_t value)
+{
+	static const uint8_t EXP_TABLE[10] = 
+		{ 2, 4, 7, 12, 22, 40, 74, 138, 255 };
+
+	if (value < 1) value = 1;
+	if (value > 9) value = 9;
+	user_brightness = value;
+	display_set_raw_brightness(EXP_TABLE[user_brightness - 1]);
 }
 
 void display_turn_on(void)
 {
+	static uint8_t initialized = 0;
 	if (display_on) return;
+
 	display_on = 1;
 
 	display[0] = display[1] = display[2] = display[3] = 0;
@@ -80,8 +98,13 @@ void display_turn_on(void)
 	// connect the FET control to Timer0:
 	TCCR0A |= _BV(COM0B1);
 
-	// run at 100% brightness:
-	display_set_brightness(255);
+	if (!initialized) {
+		initialized = 1;
+		// If we're doing this for the VERY first time, run at 100% brightness:
+		uint8_t ee_value = eeprom_read_byte(0);
+		if (ee_value < 1 || ee_value > 9) ee_value = 9;
+		display_set_user_friendly_brightness(ee_value);
+	}
 }
 
 extern char serbuf[11];
@@ -146,9 +169,53 @@ void display_tasks(void)
 	static uint8_t digit;
 	DISP_BLANK();
 	digit = (digit + 1) & 3;
-	uint8_t ch = display[digit];
-	uint8_t dot = (dots >> digit) & 1;
+	uint8_t ch = display[digit] & 0x7f;
+	uint8_t dot = display[digit] >> 7;
 	DISP_OUT_DP(dot);
 	DISP_OUT_CHAR(ch);
 	DISP_ACTIVE_DIGIT(digit);
+}
+
+void display_brightness_menu(void)
+{
+	enter_menu();
+
+	display[0] = cB; // display "b...#", where '#' is 1-9
+	display[1] = display[2] = mEMPTY;
+	display[3] = DIGIT_MASKS[user_brightness];
+	display_set_dots(DP1 | DP2 | DP3);
+
+	// wait until the key is depressed:
+	while (keypressed()) {
+		_delay_ms(16);
+		geiger_mini_mainloop();
+	}
+	uint16_t idle_counter = 0;
+	uint8_t last_key_state = 0, key_state;
+	while (1) {
+		_delay_ms(16);
+		geiger_mini_mainloop();
+		idle_counter += 16;
+		if (idle_counter > 5000) {
+			// the brightness is deemed official. Write to EEPROM and get out of here!
+			eeprom_write_byte(0, user_brightness);
+			_delay_ms(NVRAM_DELAY);
+			break;
+		}
+		key_state = keypressed();
+		if (!key_state && last_key_state) {
+			// key pressed and depressed; increment brightness and apply immediately:
+			user_brightness++;
+			if (user_brightness == 10) user_brightness = 1;
+			display_set_user_friendly_brightness(user_brightness);
+
+			// update screen:
+			display[3] = DIGIT_MASKS[user_brightness];
+
+			// reset idle counter:
+			idle_counter = 0;
+		}
+		last_key_state = key_state;
+	}
+	leave_menu();
 }

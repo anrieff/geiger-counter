@@ -68,6 +68,8 @@
 #define BTN_WPU PORTD
 #define BTN_BIT PD3
 
+#define keypressed() (!(BTN_PIN & _BV(BTN_BIT)))
+
 // the LED:
 #define LED_PORT PORTD
 #define LED_BIT PD7

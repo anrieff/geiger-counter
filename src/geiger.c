@@ -95,6 +95,7 @@
 #include <avr/sleep.h>		// sleep mode utilities
 #include <util/delay.h>		// some convenient delay functions
 #include <stdlib.h>			// some handy functions like ultoa()
+#include <string.h>         // for memcpy()
 #include "display.h"        // code to drive the 7-segment display
 #include "pinout.h"
 
@@ -131,10 +132,14 @@ volatile uint8_t overflow = 0;		// overflow flag
 volatile uint8_t eventflag = 0;	// flag for ISR to tell main loop if a GM event has occurred
 volatile uint8_t tick = 0;		// flag that tells main() when 1 second has passed
 volatile uint16_t total_count = 0; // total GM count from device startup
+volatile uint8_t long_keypress = 0; // the user held the button for more than 3 seconds
 uint8_t buffer[LONG_PERIOD];	// the sample buffer
 
 char serbuf[SER_BUFF_LEN];	// serial buffer
 uint8_t mode;				// logging mode, 0 = slow, 1 = fast, 2 = inst
+uint8_t saved_disp_state;
+uint8_t saved_display[4];
+uint8_t disable_key_handling;   // used by menus to suppres standard key handling
 
 // Interrupt service routines
 
@@ -212,16 +217,30 @@ void once_per_second_tasks(void)
 
 void once_per_16ms_tasks(void)
 {
-	static uint8_t last_button_state = 0;
-	uint8_t button_state = !!(BTN_PIN & _BV(BTN_BIT));
+	if (disable_key_handling) return;
+
+	static uint8_t last_button_state;
+	static uint8_t ticks_held; // num ticks the button is held
+	uint8_t button_state = keypressed();
 
 	if (button_state != last_button_state) {
 		last_button_state = button_state;
 		if (button_state == 0) {
-			// button has just been released
-			disp_state = (disp_state + 1) % 6;	// increment state
-			nobeep = disp_state & 1;
-			statechange = 1;
+			if (ticks_held < 190) {
+				// button has just been released
+				disp_state = (disp_state + 1) % 6;	// increment state
+				nobeep = disp_state & 1;
+				statechange = 1;
+			}
+			ticks_held = 0;
+		}
+	} else {
+		if (button_state) {
+			// user keeps pressing the button:
+			if (ticks_held < 195) ticks_held++;
+			if (ticks_held == 190) {
+				long_keypress = 1;
+			}
 		}
 	}
 }
@@ -385,6 +404,38 @@ void sendreport(void)
 	}	
 }
 
+void geiger_mini_mainloop(void)
+{
+	checkevent();	// check if we should signal an event (led + beep)
+	sendreport();	// send a log report over serial
+	checkevent();	// check again before returning
+}
+
+void enter_menu(void)
+{
+	// save old display data and state:
+	saved_disp_state = disp_state;
+ 	// set state to invalid value, so that mainloop won't overwrite the
+ 	// display with radiation data:
+	disp_state = 6;
+
+	memcpy(saved_display, display, sizeof(saved_display));
+
+	// disable mainloop key handling:
+	disable_key_handling = 1;
+
+}
+
+void leave_menu(void)
+{
+	// restore old display values and state:
+	memcpy(display, saved_display, sizeof(saved_display));
+	disp_state = saved_disp_state;
+
+	// reenable mainloop key handling:
+	disable_key_handling = 0;
+}
+
 // Start of main program
 int main(void)
 {	
@@ -429,7 +480,6 @@ int main(void)
 	TIMSK1 = _BV(OCIE1A);  // Timer1 overflow interrupt enable
 
 	display_turn_on();
-	display_show_revision();
 #ifdef DEBUG
 	uint8_t i = 0;
 	for (i = 0; i < 10; i++) buffer[LONG_PERIOD + i] = 11;
@@ -455,7 +505,12 @@ int main(void)
 		sendreport();	// send a log report over serial
 		
 		checkevent();	// check again before going to sleep
-		
+
+		// check for long keypress (in which case we enter the "set brightness" menu:)
+		if (long_keypress) {
+			long_keypress = 0;
+			display_brightness_menu();
+		}
 	}	
 	return 0;	// never reached
 }

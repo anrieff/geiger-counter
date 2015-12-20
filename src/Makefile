@@ -80,10 +80,10 @@ clean:
 geiger.elf: $(OBJECTS)
 	$(COMPILE) -o $@ $(OBJECTS) $(LDFLAGS)
 
-geiger.o: geiger.c display.h pinout.h
+geiger.o: geiger.c display.h pinout.h main.h
 	$(COMPILE) -c geiger.c -o $@
 
-display.o: display.c display.h pinout.h characters.h
+display.o: display.c display.h pinout.h characters.h main.h
 	$(COMPILE) -c display.c -o $@
 
 # Targets for code debugging and analysis:

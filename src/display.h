@@ -1,8 +1,9 @@
 /*
 	Title: Geiger Counter with Serial Data Reporting and display
-	Description: Code for driving a 7-segment "smart" display
+	Description: Code for driving a 7-segment display
 		
-	(vesko) 8/1/15 1.50: Initial release of the upgraded version.
+	(vesko)   8/1/15 1.50: Initial release of the upgraded version.
+	(vesko) 12/21/15 2.00: Update to drive a "dumb" display directly
 
 		Copyright 2011 Jeff Keyzer, MightyOhm Engineering
 		Copyright 2015 Veselin Georgiev, LVA Ltd.
@@ -22,6 +23,7 @@
 */
 
 extern uint8_t display_on; //!< whether the display is turned on.
+extern uint8_t display[4]; //!< the display masks, if you want to play with them directly.
 
 /// turn on the display (the display will be initialized to four dots)
 void display_turn_on(void);
@@ -31,7 +33,13 @@ void display_turn_off(void);
 
 /// set the display brightness. 255 means full brightness, 128 is 50%, 
 /// 1 is almost dark.
-void display_set_brightness(uint8_t value);
+void display_set_raw_brightness(uint8_t value);
+
+/// similar to display_set_raw_brightness, but the values are tanglible
+/// numbers from 1-9, where 1 is almost dark, and 9 is 100% brighness.
+/// And the grading 1..9 is logarithmic as well.
+/// (input numbers outside 1-9 are clamped to 1 or 9).
+void display_set_user_friendly_brightness(uint8_t user_value);
 
 /// print radiation value on the display. The passed value is *100, i.e.,
 /// 13.05 uSv/h is represented as 1305.
@@ -50,3 +58,8 @@ void display_show_revision(void);
 /// function that handles display multiplexing. Should be called frequently,
 /// more than 500 times per second.
 void display_tasks(void);
+
+/// displays the "adjust brightness menu", where the user selects the
+/// LED brightness levels (1-9). Selected value is activated after 5 seconds
+/// of inactivity, and saved in EEPROM.
+void display_brightness_menu(void);
