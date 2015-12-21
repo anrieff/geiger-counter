@@ -2,7 +2,8 @@
 	Title: Geiger Counter with Serial Data Reporting and display
 	Description: Code for driving a 7-segment "smart" display
 		
-	(vesko) 8/1/15 1.50: Initial release of the upgraded version.
+	(vesko)   8/1/15 1.50: Initial release of the upgraded version.
+	(vesko) 12/21/15 2.00: Update to drive a "dumb" display directly
 
 		Copyright 2011 Jeff Keyzer, MightyOhm Engineering
 		Copyright 2015 Veselin Georgiev, LVA Ltd.
@@ -166,11 +167,15 @@ void display_tasks(void)
 	static uint8_t digit;
 	DISP_BLANK();
 	digit = (digit + 1) & 3;
-	uint8_t ch = display[digit] & 0x7f;
-	uint8_t dot = display[digit] >> 7;
+
+	// interleaved digit firing order. Using simple bit reversal, the
+	// order is now 0-2-1-3:
+	uint8_t xdigit = ((digit & 2) >> 1) | ((digit & 1) << 1);
+	uint8_t ch = display[xdigit] & 0x7f;
+	uint8_t dot = display[xdigit] >> 7;
 	DISP_OUT_DP(dot);
 	DISP_OUT_CHAR(ch);
-	DISP_ACTIVE_DIGIT(digit);
+	DISP_ACTIVE_DIGIT(xdigit);
 }
 
 void display_brightness_menu(void)

@@ -8,7 +8,7 @@
 	Website:	http://LVA.bg/
 	Contact(s):	jeff <at> mightyohm.com, anrieff <at> gmail.com
   
-	This firmware controls the ATtiny2313 AVR microcontroller on board the Geiger Counter.
+	This firmware controls the ATmega88a AVR microcontroller on board the Geiger Counter.
 	
 	When an impulse from the GM tube is detected, the firmware flashes the LED and produces a short
 	beep on the piezo speaker.  It also outputs an active-high pulse (default 100us) on the PULSE pin, which
@@ -60,6 +60,23 @@
 	logging application.
 	
 	The largest CPS value that can be displayed is 65535, but the largest value that can be stored in the sample buffer is 255.
+
+	Additional user convenience/settings (from v2.0 onwards):
+
+	Display brightness can be adjusted (if you're in modes 0-3 as per the above table), by pressing and holding the
+	button for >3 seconds. The adjustment menu will display "b...9" or similar on the display. Now pressing the
+	button will cycle brightness values 1-9 (and the resulting brightness is applied immediately). When you settle
+	on a brightness you like, just leave the unit undisturbed for 5 seconds, and it will return to the main mode.
+	The chosen brightness is stored in the EEPROM, so it is saved across restarts.
+
+	The device monitors battery voltage and will produce two long beeps (and the message "bAtt.", " Lo. " on the display,
+	if it's turned on) when the batteries drain below 2.2 volts. It is a good idea to change them immediately, as they
+	are almost dead.
+
+	The v2.0 device sports an engineering menu: turn the unit on, while holding the button. The menu shows system info,
+	which you can browse by pressing the button. The entries shown are: software revision, GM tube conversion factor,
+	battery voltage (which may be off by as much as 10% in either direction - don't rely too much on it), and, finally,
+	oscillator frequency in MHz. 
 	
 	***** WARNING *****
 	This Geiger Counter is for EDUCATIONAL PURPOSES ONLY.  Don't even think about using it to monitor radiation in
@@ -68,8 +85,9 @@
 	
 	
 	Change log:
-	(jeff)  8/4/11 1.00: Initial release for Chaos Camp 2011!
-	(vesko) 8/1/15 1.50: Initial release of the upgraded version.
+	(jeff)    8/4/11 1.00: Initial release for Chaos Camp 2011!
+	(vesko)   8/1/15 1.50: Initial release of the upgraded version.
+	(vesko) 12/21/15 2.00: Ported to ATmega88, change of the display, a few more features.
 
 		Copyright 2011 Jeff Keyzer, MightyOhm Engineering
 		Copyright 2015 Veselin Georgiev, LVA Ltd.
@@ -103,7 +121,7 @@
 
 // Defines
 #define VERSION			"2.00"
-#define URL				"http://LVA.bg/products/geiger-counter"
+#define URL				"http://LVA.bg/products/geiger-counter/2.0"
 
 #define	BAUD			9600	// Serial BAUD rate
 #define SER_BUFF_LEN	11		// Serial buffer length
@@ -585,7 +603,7 @@ int main(void)
 		
 		checkevent();	// check again before going to sleep
 
-		// check for long keypress (in which case we enter the "set brightness" menu:)
+		// check for long keypress (in which case we enter the "set brightness" menu):
 		if (long_keypress) {
 			long_keypress = 0;
 			display_brightness_menu();
