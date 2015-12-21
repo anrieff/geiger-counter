@@ -25,6 +25,8 @@
 #ifndef __MAIN_H__
 #define __MAIN_H__
 
+#define COUNT_OF(arr) (sizeof(arr) / sizeof(arr[0]))
+
 /*
  * This file declares functions which might be used by an external function
  * (e.g., a menu), so that it shows something different than radiation

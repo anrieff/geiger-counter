@@ -98,6 +98,8 @@
 #include <string.h>         // for memcpy()
 #include "display.h"        // code to drive the 7-segment display
 #include "pinout.h"
+#include "main.h"
+#include "battery.h"
 
 // Defines
 #define VERSION			"2.00"
@@ -160,6 +162,16 @@ ISR(INT0_vect)
 	PULSE_PORT &= ~(_BV(PULSE_BIT));	// set pulse output low
 		
 	eventflag = 1;	// tell main program loop that a GM pulse has occurred
+}
+
+// called once per minute, and NOT from the interrupt, but from sendreport()
+void once_per_minute_tasks(void)
+{
+}
+
+void once_per_5min_tasks(void)
+{
+	battery_check_voltage();
 }
 
 // this is part of the Timer1 interrupt routine. The ISR calls this code exactly
@@ -329,6 +341,7 @@ void checkdisplay(void)
 void sendreport(void)
 {
 	uint32_t cpm;	// This is the CPM value we will report
+	static uint16_t seconds_counter = 297; // used to track time, to launch once_per_* functions
 	if(tick) {	// 1 second has passed, time to report data via UART
 		tick = 0;	// reset flag for the next interval
 			
@@ -401,6 +414,14 @@ void sendreport(void)
 			else
 				display_counts(total_count);
 		}
+		// check for per minute/per 5 minutes housekeeping
+		if (++seconds_counter % 60 == 0) {
+			once_per_minute_tasks();
+			if (seconds_counter == 300) {
+				once_per_5min_tasks();
+				seconds_counter = 0;
+			}
+		}
 	}	
 }
 
@@ -434,6 +455,60 @@ void leave_menu(void)
 
 	// reenable mainloop key handling:
 	disable_key_handling = 0;
+}
+
+static void show_conversion_factor(void)
+{
+	display_int_value(SCALE_FACTOR, 0, 0);
+}
+
+static void show_frequency(void)
+{
+ 	// display either "8.000", or "6.000", depending on crystal:
+	display_int_value(F_CPU / 1000, 3, 0xff);
+}
+
+static void show_battery_voltage(void)
+{
+	display_int_value(battery_get_voltage() / 10, 2, 0xff);
+}
+
+typedef void (*menu_func) (void);
+void system_menu(void)
+{
+	enter_menu();
+
+	uint8_t current_item = 0, ticks = 0;
+	uint8_t last_key_state = 0, key_state;
+	uint8_t first_key_release = 1;
+
+	menu_func menu_items[] = {
+		display_show_revision,
+		show_conversion_factor,
+		show_battery_voltage,
+		show_frequency
+	};
+
+	while (1) {
+		// approx once per second:
+		if (ticks == 0) menu_items[current_item]();
+
+		ticks = (ticks + 1) % 64;
+		_delay_ms(16);
+
+		key_state = keypressed();
+		if (!key_state && last_key_state) {
+			if (!first_key_release) {
+				current_item = (current_item + 1) % COUNT_OF(menu_items);
+				menu_items[current_item]();
+			} else {
+				first_key_release = 0;
+			}
+		}
+		last_key_state = key_state;
+	}
+
+	leave_menu();
 }
 
 // Start of main program
@@ -478,6 +553,7 @@ int main(void)
 	TCCR1B = _BV(WGM12) | _BV(CS11);  // CTC mode, prescaler = 8 (1 or 1.3333 us ticks)
 	OCR1A = 125 * CPU_MHZ;	// 8MHz: 1us * 1000 = 1 ms; 6MHz: 1.33333 us * 750 = 1ms
 	TIMSK1 = _BV(OCIE1A);  // Timer1 overflow interrupt enable
+	init_ADC();
 
 	display_turn_on();
 #ifdef DEBUG
@@ -485,6 +561,9 @@ int main(void)
 	for (i = 0; i < 10; i++) buffer[LONG_PERIOD + i] = 11;
 #endif
 	sei();	// Enable interrupts
+
+	// if button is held at startup, enter the system menu:
+	if (keypressed()) system_menu();
 
 	while(1) {	// loop forever
 		

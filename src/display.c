@@ -30,6 +30,7 @@
 #include "pinout.h"
 #include "characters.h"
 #include "main.h"
+#include "display.h"
 
 // constants:
 #define NVRAM_DELAY 2 // milliseconds
@@ -38,14 +39,6 @@ uint8_t display_on = 0;
 uint8_t display[4];
 uint8_t raw_brightness; // PWM values, 0-255
 uint8_t user_brightness; // user-friendly values, 1-9.
-
- // these are OR-able masks for display_set_dots()
-enum {
-    DP1 = 1,
-    DP2 = 2,
-    DP3 = 4,
-    DP4 = 8,            // decimal points
-};
 
 
 void display_turn_off(void)
@@ -57,14 +50,13 @@ void display_turn_off(void)
 	GFET_PORT &= ~_BV(GFET_BIT);
 }
 
-static void display_set_dots(uint8_t mask)
+void display_set_dots(uint8_t mask)
 {
 	display[0] = (display[0] & 0x7f) | ((mask & 1) << 7);
 	display[1] = (display[1] & 0x7f) | ((mask & 2) << 6);
 	display[2] = (display[2] & 0x7f) | ((mask & 4) << 5);
 	display[3] = (display[3] & 0x7f) | ((mask & 8) << 4);
 }
-
 
 void display_set_raw_brightness(uint8_t value)
 {
@@ -107,10 +99,15 @@ void display_turn_on(void)
 	}
 }
 
+void display_clear(void)
+{
+	display[0] = display[1] = display[2] = display[3] = 0;
+}
+
 extern char serbuf[11];
 const uint8_t DIGIT_MASKS[10] = { num0, num1, num2, num3, num4, num5, num6, num7, num8, num9 };
 
-static void display_int_value(uint32_t x, int8_t dp, uint8_t dp_mask)
+void display_int_value(uint32_t x, int8_t dp, uint8_t dp_mask)
 {
 	uint8_t i;
 
@@ -159,9 +156,9 @@ void display_show_revision(void)
 {
 	display[0] = cR;    // 'r'
 	display[1] = num3;  // '3'
-	display[2] = num2;  // '2'
-	display[3] = num5;  // '5'
-	display_set_dots(DP1); // "r.325"
+	display[2] = num3;  // '3'
+	display[3] = num0;  // '0'
+	display_set_dots(DP1); // "r.330"
 }
 
 void display_tasks(void)

@@ -29,7 +29,8 @@
 PROGRAM		= geiger
 OBJECTS		= \
 	geiger.o \
-	display.o
+	display.o \
+	battery.o
 DEVICE		= atmega88p
 CLOCK		= 6000000
 PROGRAMMER	= usbtiny
@@ -80,11 +81,14 @@ clean:
 geiger.elf: $(OBJECTS)
 	$(COMPILE) -o $@ $(OBJECTS) $(LDFLAGS)
 
-geiger.o: geiger.c display.h pinout.h main.h
+geiger.o: geiger.c display.h pinout.h main.h battery.h
 	$(COMPILE) -c geiger.c -o $@
 
 display.o: display.c display.h pinout.h characters.h main.h
 	$(COMPILE) -c display.c -o $@
+
+battery.o: display.c display.h battery.c pinout.h characters.h main.h
+	$(COMPILE) -c battery.c -o $@
 
 # Targets for code debugging and analysis:
 disasm:	$(PROGRAM).elf

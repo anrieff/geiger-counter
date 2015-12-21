@@ -25,6 +25,14 @@
 extern uint8_t display_on; //!< whether the display is turned on.
 extern uint8_t display[4]; //!< the display masks, if you want to play with them directly.
 
+// these are OR-able masks for display_set_dots()
+enum {
+    DP1 = 1,
+    DP2 = 2,
+    DP3 = 4,
+    DP4 = 8,            // decimal points
+};
+
 /// turn on the display (the display will be initialized to four dots)
 void display_turn_on(void);
 
@@ -40,6 +48,33 @@ void display_set_raw_brightness(uint8_t value);
 /// And the grading 1..9 is logarithmic as well.
 /// (input numbers outside 1-9 are clamped to 1 or 9).
 void display_set_user_friendly_brightness(uint8_t user_value);
+
+/// clears the display (and dots)
+void display_clear(void);
+
+/// sets the dots mask (DP1, DP2, DP3 & DP4, see the enum definition):
+void display_set_dots(uint8_t mask);
+
+/// displays an integer value on the display.
+/// @param x - the value to be displayed.
+/// @param dp - where to place the decimal point.
+///             dp = 0: don't use a decimal point
+///             dp = 1: format the number as XXX.X
+///             dp = 2: format the number as XX.XX
+///             dp = 3: format the number as X.XXX
+///             
+///             if dp > 0, if the number doesn't fit (x > 9999),
+///             the number is autoscaled and point moved up to the
+///             last possible place; i.e.
+///             display_int_value( 1234, 2, 0xff) -> displays "12.34"
+///             display_int_value(51234, 2, 0xff) -> displays "512.3"
+///             if the decimal points goes "off scale", then the 
+///             display is "-OL-" ("off limits"):
+///             display_int_value(7651234, 2, 0xff) -> displays "-OL-"
+/// @param dp_mask - masks the allowed dp values (i.e., only bits in
+///                  dp_mask will be considered when displaying the
+///                  dot mask; @see display_set_dots()).
+void display_int_value(uint32_t x, int8_t dp, uint8_t dp_mask);
 
 /// print radiation value on the display. The passed value is *100, i.e.,
 /// 13.05 uSv/h is represented as 1305.
