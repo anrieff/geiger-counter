@@ -50,7 +50,7 @@ uint16_t battery_get_voltage(void)
 	for (i = 0; i < 160; i++) {
 		ADCSRA |= 0x40;
 		while (ADCSRA & 0x40)  ;
-		adc_res = (((uint16_t) ADCH) << 8) + (uint16_t) ADCL;
+		adc_res = ADCW;
 		sum += adc_res;
 	}
 
