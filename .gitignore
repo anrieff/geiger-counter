@@ -7,3 +7,4 @@ src/*.map
 src/*.lst
 src/TODO
 src/*.su
+display_sim
