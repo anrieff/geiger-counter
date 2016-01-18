@@ -158,8 +158,8 @@ void display_show_revision(void)
 	display[0] = cR;    // 'r'
 	display[1] = num3;  // '3'
 	display[2] = num3;  // '3'
-	display[3] = num0;  // '0'
-	display_set_dots(DP1); // "r.330"
+	display[3] = num1;  // '1'
+	display_set_dots(DP1); // "r.331"
 }
 
 void display_tasks(void)

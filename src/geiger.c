@@ -152,7 +152,7 @@ volatile uint16_t cps = 0;			// GM counts per second, updated once a second
 volatile uint8_t overflow = 0;		// overflow flag
 volatile uint8_t eventflag = 0;	// flag for ISR to tell main loop if a GM event has occurred
 volatile uint8_t tick = 0;		// flag that tells main() when 1 second has passed
-volatile uint16_t total_count = 0; // total GM count from device startup
+volatile uint32_t total_count = 0; // total GM count from device startup
 volatile uint8_t long_keypress = 0; // the user held the button for more than 3 seconds
 uint8_t buffer[LONG_PERIOD];	// the sample buffer
 
@@ -170,8 +170,8 @@ ISR(INT0_vect)
 {
 	if (count < UINT16_MAX)	// check for overflow, if we do overflow just cap the counts at max possible
 		count++; // increase event counter
-	if (total_count < UINT16_MAX)
-		total_count++;
+
+	total_count++;
 
 	// send a pulse to the PULSE connector
 	// a delay of 100us limits the max CPS to about 8000
