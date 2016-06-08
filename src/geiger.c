@@ -11,7 +11,7 @@
 	This firmware controls the ATmega88a AVR microcontroller on board the Geiger Counter.
 	
 	When an impulse from the GM tube is detected, the firmware flashes the LED and produces a short
-	beep on the piezo speaker.  It also outputs an active-high pulse (default 100us) on the PULSE pin, which
+	beep on the piezo speaker. It also outputs an active-high pulse (default 100us) on the PULSE pin, which
 	is also output via a RCA jack for interception in the Geiger Bot app for iOS devices.
 	
 	A pushbutton on the PCB can be used to mute the beep or turn off the display. The following 6 states
@@ -235,15 +235,6 @@ void once_per_second_tasks(void)
 	if (++lagging_idx >= LONG_PERIOD)
 		lagging_idx = 0;
 	count = 0;  // reset counter
-#ifdef PARANOID
-	if (slowcpm > 64000) {
-		// assume a bug, which modified buffer[], and slowcpm now holds a "negative" value.
-		// we can't do a meaningful recovery here; we just reset the counters:
-		slowcpm = fastsum = 0;
-		for (new_sample = 0; new_sample < LONG_PERIOD; new_sample++)
-			buffer[new_sample] = 0;
-	}
-#endif
 }
 
 void once_per_16ms_tasks(void)
@@ -418,15 +409,6 @@ void sendreport(void)
 		// We're done reporting data, output a newline.
 		uart_putchar('\n');	
 		
-#ifdef DEBUG
-		uint8_t i;
-		for (i = LONG_PERIOD - 5; i < LONG_PERIOD + 10; i++) {
-				ultoa(buffer[i] + 100, serbuf, 10);
-				uart_putstring(serbuf);
-		}
-		uart_putchar('\n');
-#endif
-		
 		if (disp_state < 4) {
 			if (disp_state < 2)
 				display_radiation(usv_scaled);
@@ -575,10 +557,6 @@ int main(void)
 	init_ADC();
 
 	display_turn_on();
-#ifdef DEBUG
-	uint8_t i = 0;
-	for (i = 0; i < 10; i++) buffer[LONG_PERIOD + i] = 11;
-#endif
 	sei();	// Enable interrupts
 
 	// if button is held at startup, enter the system menu:

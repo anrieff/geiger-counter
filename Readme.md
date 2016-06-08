@@ -28,3 +28,7 @@ This is my fork of MightyOhm's Geiger Counter. It features:
 # Hardware
 
 The device is sold through our friends at Robotev, [see here](http://www.robotev.com/product_info.php?cPath=1_50&products_id=578) if you want one (currently shipping to Bulgaria and Balkan-area countries only). More photos of the device can be found [here](http://lva.bg/products/geiger-counter/gallery).
+
+# Links
+
+See the [FAQ](http://lva.bg/support/forum/viewtopic.php?f=8&t=7) (in Bulgarian), and an useful [page](http://lva.bg/support/geiger-counter/calculator/), which discusses the statistical uncertainity when measuring low radiation levels (e.g., the background levels in most areas) for just a minute; in includes a helpful [procedure](http://lva.bg/support/geiger-counter/calculator/#procedure) for more precise measurements, and a [shot noise calculator](http://lva.bg/support/geiger-counter/calculator/#calculator) to facilitate the process.

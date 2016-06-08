@@ -1,9 +1,10 @@
 /*
 	Title: Geiger Counter with Serial Data Reporting and display
-	Description: Code for driving a 7-segment "smart" display
+	Description: Code for driving a 7-segment display
 		
-	(vesko)   8/1/15 1.50: Initial release of the upgraded version.
-	(vesko) 12/21/15 2.00: Update to drive a "dumb" display directly
+	(vesko)   8/1/15 1.50: Initial release of the upgraded version,
+	                       driving a SparkFun "smart" display.
+	(vesko) 12/21/15 2.00: Update to drive a "dumb" display directly.
 
 		Copyright 2011 Jeff Keyzer, MightyOhm Engineering
 		Copyright 2015 Veselin Georgiev, LVA Ltd.
@@ -32,6 +33,7 @@
 #include "characters.h"
 #include "main.h"
 #include "display.h"
+#include "revision.h"
 
 // constants:
 #define NVRAM_DELAY 2 // milliseconds
@@ -155,11 +157,8 @@ void display_counts(uint32_t counts)
 
 void display_show_revision(void)
 {
-	display[0] = cR;    // 'r'
-	display[1] = num3;  // '3'
-	display[2] = num3;  // '3'
-	display[3] = num1;  // '1'
-	display_set_dots(DP1); // "r.331"
+	display_int_value(FIRMWARE_REVISION, 3, 1); // " .XXX"
+	display[0] = cR;                            // "r.XXX"
 }
 
 void display_tasks(void)

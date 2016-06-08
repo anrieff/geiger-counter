@@ -84,7 +84,7 @@ geiger.elf: $(OBJECTS)
 geiger.o: geiger.c display.h pinout.h main.h battery.h
 	$(COMPILE) -c geiger.c -o $@
 
-display.o: display.c display.h pinout.h characters.h main.h
+display.o: display.c display.h pinout.h characters.h main.h revision.h
 	$(COMPILE) -c display.c -o $@
 
 battery.o: display.c display.h battery.c pinout.h characters.h main.h

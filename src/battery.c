@@ -1,6 +1,6 @@
 /*
 	Title: Geiger Counter with Serial Data Reporting and display
-	Description: Code for reading out battery voltage via a resistive divider.
+	Description: Code for reading out battery voltage (Vref/Vcc method).
 		
 		Copyright 2011 Jeff Keyzer, MightyOhm Engineering
 		Copyright 2015 Veselin Georgiev, LVA Ltd.

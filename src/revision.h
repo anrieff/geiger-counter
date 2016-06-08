@@ -1,9 +1,11 @@
 /*
 	Title: Geiger Counter with Serial Data Reporting and display
-	Description: Code for reading out battery voltage (Vref/Vcc method).
-		
-		Copyright 2011 Jeff Keyzer, MightyOhm Engineering
-		Copyright 2015 Veselin Georgiev, LVA Ltd.
+	Description: Revision number storage
+
+	The sole purpose of this file is to store "firmware revision" number.
+	This is displayed in the system menu and can be used for debugging purposes.
+
+ 		Copyright 2016 Veselin Georgiev, LVA Ltd.
  
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -19,13 +21,4 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/// inits the relevant AVR subsystems related to ADC and voltage readout
-void init_ADC(void);
-
-/// fetches the current battery voltage, sampled over a 20ms interval.
-/// return value is in millivolts
-uint16_t battery_get_voltage(void);
-
-/// checks if the battery voltage falls below a threshold (~2.2V), and, if so,
-/// emit a loud alarm and display a message:
-void battery_check_voltage(void);
+#define FIRMWARE_REVISION 332
