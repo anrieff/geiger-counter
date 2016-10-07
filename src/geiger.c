@@ -514,6 +514,33 @@ static void show_battery_voltage(void)
 	display_int_value(battery_get_voltage() / 10, 2, 0xff);
 }
 
+uint8_t row_show_id;
+
+static void show_eelog_value(uint16_t counts)
+{
+	if (row_show_id >= 2) return;
+	display_counts(counts);
+	uint8_t delay = row_show_id == 0 ? 3 : 1;
+	while (delay--) {
+		_delay_ms(500);
+	}
+	display_clear();
+	_delay_ms(50);
+}
+
+static void show_eelog_finish_row(void)
+{
+	row_show_id++;
+}
+
+static void show_eelog_on_display(void)
+{
+	row_show_id = 0;
+	display_clear();
+	_delay_ms(200);
+	logging_fetch_log(LOG_EEPROM, show_eelog_value, show_eelog_finish_row);
+}
+
 typedef void (*menu_func) (void);
 void system_menu(void)
 {
@@ -522,6 +549,7 @@ void system_menu(void)
 	uint8_t current_item = 0, ticks = 0;
 	uint8_t last_key_state = 0, key_state;
 	uint8_t first_key_release = 1;
+	uint8_t num_cycles = 0;
 
 	menu_func menu_items[] = {
 		display_show_revision,
@@ -541,6 +569,14 @@ void system_menu(void)
 		if (!key_state && last_key_state) {
 			if (!first_key_release) {
 				current_item = (current_item + 1) % COUNT_OF(menu_items);
+				if (!current_item) {
+					// wraparound:
+					num_cycles++;
+					if (num_cycles == 5) {
+						show_eelog_on_display();
+						num_cycles = 0;
+					}
+				}
 				menu_items[current_item]();
 			} else {
 				first_key_release = 0;
