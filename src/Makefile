@@ -1,7 +1,7 @@
 # Name:			Makefile
 # Authors:		Jeff Keyzer, Veselin Georgiev
 # Copyright:	2011 Jeff Keyzer, MightyOhm Engineering	
-#               2015 Veselin Georgiev, LVA Ltd.
+#               2015, 2016 Veselin Georgiev, LVA Ltd.
 #
 # This Makefile is derived from the template that comes with CrossPack for the Mac,
 # but with several improvements.
@@ -20,17 +20,15 @@
 # HFUSE			Targer device configuration fuses, high byte.
 # EFUSE			Target device configuration fuses (extended).
 #
-# Note: the additions for the LVA device (w/ serial display) extend the program code
-#       quite a bit, and we were over the budget for program memory. Some optimizations
-#       were performed, and the -Os flag was replaced with -O2, which generates smaller code.
-#       The code now barely fits in memory when using avr-gcc 4.8.1. Feel free to
-#       experiment with -Os if you're using a different gcc version.
 
 PROGRAM		= geiger
 OBJECTS		= \
-	geiger.o \
+	geiger.o  \
 	display.o \
-	battery.o
+	battery.o \
+	pc_link.o \
+	logging.o
+
 DEVICE		= atmega88p
 CLOCK		= 6000000
 PROGRAMMER	= usbtiny
@@ -48,7 +46,7 @@ EFUSE		= 0xFF
 # Tune the lines below only if you know what you are doing:
 
 AVRDUDE = avrdude -c $(PROGRAMMER) -P $(PORT) -p $(DEVICE)
-COMPILE = avr-gcc -g -Wall -Os -DF_CPU=$(CLOCK) -mmcu=$(DEVICE)
+COMPILE = avr-gcc -std=c11 -g -Wall -Os -DF_CPU=$(CLOCK) -mmcu=$(DEVICE)
 
 # Linker options
 LDFLAGS	= -Wl,-Map=$(PROGRAM).map -Wl,--cref 
@@ -89,6 +87,12 @@ display.o: display.c display.h pinout.h characters.h main.h revision.h
 
 battery.o: display.c display.h battery.c pinout.h characters.h main.h
 	$(COMPILE) -c battery.c -o $@
+
+pc_link.o: pc_link.c pc_link.h main.h pinout.h revision.h
+	$(COMPILE) -c pc_link.c -o $@
+
+logging.o: logging.c logging.h main.h pinout.h
+	$(COMPILE) -c logging.c -o $@
 
 # Targets for code debugging and analysis:
 disasm:	$(PROGRAM).elf

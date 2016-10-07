@@ -35,9 +35,6 @@
 #include "display.h"
 #include "revision.h"
 
-// constants:
-#define NVRAM_DELAY 2 // milliseconds
-
 uint8_t display_on = 0;
 uint8_t display[4];
 uint8_t raw_brightness; // PWM values, 0-255

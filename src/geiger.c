@@ -1,5 +1,5 @@
 /*
-	Title: Geiger Counter with Serial Data Reporting and display
+	Title: Geiger Counter with Serial Data Reporting, EEPROM logging, and display.
 	Description: This is the firmware for the mightyohm.com Geiger Counter.
 		There is more information at http://mightyohm.com/geiger and http://LVA.bg/products/geiger-counter
 		
@@ -89,9 +89,10 @@
 	(vesko)   8/1/15 1.50: Initial release of the upgraded version.
 	(vesko) 12/21/15 2.00: Ported to ATmega88, change of the display, a few more features.
 	(vesko)  1/17/16       Published to github.
+	(vesko)  8/18/16 2.10: Add long logging, and PC link via the UART for downloading the log 
 
 		Copyright 2011 Jeff Keyzer, MightyOhm Engineering
-		Copyright 2015 Veselin Georgiev, LVA Ltd.
+		Copyright 2015, 2016 Veselin Georgiev, LVA Ltd.
  
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -119,6 +120,8 @@
 #include "pinout.h"
 #include "main.h"
 #include "battery.h"
+#include "logging.h"
+#include "pc_link.h"
 
 // Defines
 #define VERSION			"2.00"
@@ -153,6 +156,7 @@ volatile uint8_t overflow = 0;		// overflow flag
 volatile uint8_t eventflag = 0;	// flag for ISR to tell main loop if a GM event has occurred
 volatile uint8_t tick = 0;		// flag that tells main() when 1 second has passed
 volatile uint32_t total_count = 0; // total GM count from device startup
+volatile uint32_t uptime = 0;       // number of seconds since the last restart
 volatile uint8_t long_keypress = 0; // the user held the button for more than 3 seconds
 uint8_t buffer[LONG_PERIOD];	// the sample buffer
 
@@ -274,7 +278,10 @@ void once_per_16ms_tasks(void)
 ISR(TIMER1_COMPA_vect)
 {
 	static uint16_t ms = 0; // where are we within each second (0-999)
-	if (++ms == 1000) ms = 0; // warp back
+	if (++ms == 1000) {
+		ms = 0; // warp back
+		uptime++;
+	}
 
 	if (display_on  ) display_tasks(); // update the display
 	if (ms == 0)      once_per_second_tasks(); // handle stats gathering
@@ -300,6 +307,12 @@ void uart_putstring(const char *buffer)
 		uart_putchar(*buffer);	// send the contents
 		buffer++;				// advance to next char in buffer
 	}
+}
+
+void uart_print_number(uint32_t number)
+{
+	ultoa(number, serbuf, 10);
+	uart_putstring(serbuf);
 }
 
 // Send a string in PROGMEM to the UART
@@ -352,9 +365,11 @@ void sendreport(void)
 {
 	uint32_t cpm;	// This is the CPM value we will report
 	static uint16_t seconds_counter = 297; // used to track time, to launch once_per_* functions
+	static uint32_t last_total_count = 0;
+	static uint8_t  half_minute_counter = 30;
 	if(tick) {	// 1 second has passed, time to report data via UART
 		tick = 0;	// reset flag for the next interval
-			
+		
 		if (overflow) {
 			cpm = cps*60UL;
 			mode = 2;
@@ -369,45 +384,50 @@ void sendreport(void)
 			cpm = (uint32_t) slowcpm;
 		}
 		
-		// Send CPM value to the serial port
-		uart_putstring_P(PSTR("CPS, "));
-		ultoa(cps, serbuf, 10);		// radix 10
-		uart_putstring(serbuf);
-			
-		uart_putstring_P(PSTR(", CPM, "));
-		ultoa(cpm, serbuf, 10);		// radix 10
-		uart_putstring(serbuf);
-			
-		uart_putstring_P(PSTR(", uSv/hr, "));
+		if (!silent) {
+			// Send CPM value to the serial port
+			uart_putstring_P(PSTR("CPS, "));
+			ultoa(cps, serbuf, 10);		// radix 10
+			uart_putstring(serbuf);
+				
+			uart_putstring_P(PSTR(", CPM, "));
+			ultoa(cpm, serbuf, 10);		// radix 10
+			uart_putstring(serbuf);
+				
+			uart_putstring_P(PSTR(", uSv/hr, "));
+		}
 	
 		// calculate uSv/hr based on scaling factor, and multiply result by 100
 		// so we can easily separate the integer and fractional components (2 decimal places)
 		uint32_t usv_scaled = (uint32_t)(cpm*SCALE_FACTOR)/100;	// scale and truncate the integer part
-			
-		// this reports the integer part
-		ultoa((uint16_t)(usv_scaled/100), serbuf, 10);	
-		uart_putstring(serbuf);
-			
-		uart_putchar('.');
-			
-		// this reports the fractional part (2 decimal places)
-		uint8_t fraction = usv_scaled % 100;
-		if (fraction < 10)
-			uart_putchar('0');	// zero padding for <0.10
-		ultoa(fraction, serbuf, 10);
-		uart_putstring(serbuf);
+		
+		if (!silent) {
+			// this reports the integer part
+			ultoa((uint16_t)(usv_scaled/100), serbuf, 10);	
+			uart_putstring(serbuf);
+				
+			uart_putchar('.');
+				
+			// this reports the fractional part (2 decimal places)
+			uint8_t fraction = usv_scaled % 100;
+			if (fraction < 10)
+				uart_putchar('0');	// zero padding for <0.10
+			ultoa(fraction, serbuf, 10);
+			uart_putstring(serbuf);
 
-		// Tell us what averaging method is being used
-		if (mode == 2) {
-			uart_putstring_P(PSTR(", INST"));
-		} else if (mode == 1) {
-			uart_putstring_P(PSTR(", FAST"));
-		} else {
-			uart_putstring_P(PSTR(", SLOW"));
+			// Tell us what averaging method is being used
+			if (mode == 2) {
+				uart_putstring_P(PSTR(", INST"));
+			} else if (mode == 1) {
+				uart_putstring_P(PSTR(", FAST"));
+			} else {
+				uart_putstring_P(PSTR(", SLOW"));
+			}
+			
+			// We're done reporting data, output a newline.
+			uart_putchar('\n');	
 		}
 			
-		// We're done reporting data, output a newline.
-		uart_putchar('\n');	
 		
 		if (disp_state < 4) {
 			if (disp_state < 2)
@@ -423,7 +443,27 @@ void sendreport(void)
 				seconds_counter = 0;
 			}
 		}
+		// check if half a minute has passed, in which case we log what
+		// happened during that period
+		if (! --half_minute_counter) {
+			half_minute_counter = 30;
+			cli();
+			uint32_t t = total_count;
+			sei();
+
+			logging_add_data_point(t - last_total_count, battery_get_voltage());
+			last_total_count = t;
+		}
 	}	
+}
+
+uint32_t get_uptime_seconds(void)
+{
+	uint32_t retval;
+	cli(); // disable interrupts
+	retval = uptime;
+	sei(); // reenable interrupts
+	return retval;
 }
 
 void geiger_mini_mainloop(void)
@@ -531,6 +571,10 @@ int main(void)
 	DDRD = CONF_DDRD;
 	BTN_WPU |= _BV(BTN_BIT);	// enable internal pull up resistor on pin connected to button
 	
+	// set up the UART receive pin. As an external serial interface might not be connected, we need
+	// to make apply the weak pull-up to the pin, otherwise it may be left floating.
+	PORTD |= _BV(RX_BIT);		// enable internal pull up resistor on the RX pin.
+	
 	// Set up external interrupts	
 	// INT0 is triggered by a GM impulse
 	EICRA |= _BV(ISC01);	// Config interrupts on falling edge of INT0
@@ -555,6 +599,12 @@ int main(void)
 	OCR1A = 125 * CPU_MHZ;	// 8MHz: 1us * 1000 = 1 ms; 6MHz: 1.33333 us * 750 = 1ms
 	TIMSK1 = _BV(OCIE1A);  // Timer1 overflow interrupt enable
 	init_ADC();
+	
+	// Init logging:
+	logging_init();
+
+	// Set up logging and PC link:
+	pc_link_init();
 
 	display_turn_on();
 	sei();	// Enable interrupts
@@ -577,8 +627,10 @@ int main(void)
 		checkevent();	// check if we should signal an event (led + beep)
 
 		checkdisplay(); // check if we need to do something with the LED display
+
+		pc_link_check(); // check if we need to answer queries over the serial port
 	
-		sendreport();	// send a log report over serial
+		sendreport();	// send a log report over serial if needed
 		
 		checkevent();	// check again before going to sleep
 

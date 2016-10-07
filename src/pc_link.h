@@ -1,11 +1,12 @@
 /*
 	Title: Geiger Counter with Serial Data Reporting and display
-	Description: Revision number storage
+	Description: Code for comminicating with a PC over UART.
+		
+	(vesko)  8/18/16 2.10: Initial support for radiation logging
+	                       and UART commands.
 
-	The sole purpose of this file is to store "firmware revision" number.
-	This is displayed in the system menu and can be used for debugging purposes.
-
- 		Copyright 2016 Veselin Georgiev, LVA Ltd.
+		Copyright 2011 Jeff Keyzer, MightyOhm Engineering
+		Copyright 2016 Veselin Georgiev, LVA Ltd.
  
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -21,5 +22,13 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define FIRMWARE_REVISION 334
-#define FIRMWARE_REVISION_STR "334"
+#ifndef __PC_LINK_H__
+#define __PC_LINK_H__
+
+// if on, printing of per-second log lines should be suppressed:
+extern char silent;
+
+void pc_link_init(void);
+void pc_link_check(void);
+
+#endif // __PC_LINK_H__

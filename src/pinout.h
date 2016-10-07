@@ -53,20 +53,23 @@
 |  27 | PC4         | Seg E             |
 |  28 | PC5         | Seg F             |
 |  29 | PC6/RESET   | Reset/programming |
-|  30 | PD0/RX      | UART              |
-|  31 | PD1/TX      | UART              |
+|  30 | PD0/RX      | UART (PC->device) |
+|  31 | PD1/TX      | UART (device->PC) |
 |  32 | PD2/INT0    | GM_Pulse          |
 +-----+-------------+-------------------+
 */
 
 #define CONF_DDRB 0xff // all output
 #define CONF_DDRC 0x3f // PC0-PC5 are segments A-F - output
-#define CONF_DDRD 0xf3 // all output except PD2 & PD3
+#define CONF_DDRD 0xf2 // all output except PD0, PD2 and PD3
 
 // the button:
 #define BTN_PIN	PIND
 #define BTN_WPU PORTD
 #define BTN_BIT PD3
+
+// UART RX:
+#define RX_BIT PD0
 
 #define keypressed() (!(BTN_PIN & _BV(BTN_BIT)))
 

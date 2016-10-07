@@ -6,7 +6,7 @@
 	(vesko) 12/21/15 2.00: Update to drive a "dumb" display directly
 
 		Copyright 2011 Jeff Keyzer, MightyOhm Engineering
-		Copyright 2015 Veselin Georgiev, LVA Ltd.
+		Copyright 2015, 2016 Veselin Georgiev, LVA Ltd.
  
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -25,8 +25,14 @@
 #ifndef __MAIN_H__
 #define __MAIN_H__
 
+/* constants: */
+#define NVRAM_DELAY 2 // milliseconds
+
+/* macros: */
 #define COUNT_OF(arr) (sizeof(arr) / sizeof(arr[0]))
 
+
+/* functions: */
 /*
  * This file declares functions which might be used by an external function
  * (e.g., a menu), so that it shows something different than radiation
@@ -53,5 +59,23 @@ void fancy_menu(void)
 void enter_menu(void);
 void geiger_mini_mainloop(void);
 void leave_menu(void);
+
+// send a character to the serial port. If the character is '\n', sends
+// '\r\n' (win32 style newline).
+void uart_putchar(char c);
+
+// send a null-terminated string in SRAM to the serial port:
+void uart_putstring(const char *buffer);
+
+// send a null-terminated string in PROGMEM to the serial port:
+// (the strings you send need to be surrounded by PSTR())
+void uart_putstring_P(const char *buffer);
+
+// print a number
+void uart_print_number(uint32_t number);
+
+// get the uptime (time since the last restart) in seconds
+uint32_t get_uptime_seconds(void);
+
 
 #endif // __MAIN_H__

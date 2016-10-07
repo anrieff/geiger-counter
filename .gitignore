@@ -8,3 +8,5 @@ src/*.lst
 src/TODO
 src/*.su
 display_sim
+src/dryrun_test/eeprom
+src/dryrun_test/dryrun
