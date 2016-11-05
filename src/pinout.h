@@ -73,6 +73,9 @@
 
 #define keypressed() (!(BTN_PIN & _BV(BTN_BIT)))
 
+#define sounder_on()  TCCR0A |=  _BV(COM0A0) // enable OCR0A output on the piezo pin
+#define sounder_off() TCCR0A &= ~_BV(COM0A0) // disable OCR0A output on the piezo pin
+
 // the LED:
 #define LED_PORT PORTD
 #define LED_BIT PD7

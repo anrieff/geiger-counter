@@ -40,6 +40,9 @@ void display_turn_on(void);
 /// turn off the display
 void display_turn_off(void);
 
+/// checks if the display is on
+int8_t display_is_on(void);
+
 /// set the display brightness. 255 means full brightness, 128 is 50%, 
 /// 1 is almost dark.
 void display_set_raw_brightness(uint8_t value);

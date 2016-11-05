@@ -27,7 +27,9 @@ OBJECTS		= \
 	display.o \
 	battery.o \
 	pc_link.o \
-	logging.o
+	logging.o \
+	nvram_settings.o \
+	alarms.o
 
 DEVICE		= atmega88p
 CLOCK		= 6000000
@@ -46,7 +48,7 @@ EFUSE		= 0xFF
 # Tune the lines below only if you know what you are doing:
 
 AVRDUDE = avrdude -c $(PROGRAMMER) -P $(PORT) -p $(DEVICE)
-COMPILE = avr-gcc -std=c11 -g -Wall -Os -DF_CPU=$(CLOCK) -mmcu=$(DEVICE)
+COMPILE = avr-gcc -std=c99 -g -Wall -Os -DF_CPU=$(CLOCK) -mmcu=$(DEVICE)
 
 # Linker options
 LDFLAGS	= -Wl,-Map=$(PROGRAM).map -Wl,--cref 
@@ -79,7 +81,7 @@ clean:
 geiger.elf: $(OBJECTS)
 	$(COMPILE) -o $@ $(OBJECTS) $(LDFLAGS)
 
-geiger.o: geiger.c display.h pinout.h main.h battery.h
+geiger.o: geiger.c display.h pinout.h main.h battery.h nvram_settings.h
 	$(COMPILE) -c geiger.c -o $@
 
 display.o: display.c display.h pinout.h characters.h main.h revision.h
@@ -94,9 +96,18 @@ pc_link.o: pc_link.c pc_link.h main.h pinout.h revision.h
 logging.o: logging.c logging.h main.h pinout.h
 	$(COMPILE) -c logging.c -o $@
 
+nvram_settings.o: nvram_settings.c nvram_settings.h nvram_map.h
+	$(COMPILE) -c nvram_settings.c -o $@
+
+alarms.o: alarms.c alarms.h nvram_settings.h pinout.h
+	$(COMPILE) -c alarms.c -o $@
+
 # Targets for code debugging and analysis:
 disasm:	$(PROGRAM).elf
 	avr-objdump -h -S $(PROGRAM).elf > $(PROGRAM).lst
 
+sizes:
+	readelf -s *.o | cut -c18- | grep FUNC | sort -n
+
 # Tell make that these targets don't correspond to actual files
-.PHONY :	all $(PROGRAM) flash fuse install clean disasm
+.PHONY :	all $(PROGRAM) flash fuse install clean disasm sizes

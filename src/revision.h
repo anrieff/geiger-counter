@@ -21,5 +21,5 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define FIRMWARE_REVISION 334
-#define FIRMWARE_REVISION_STR "334"
+#define FIRMWARE_REVISION 336
+#define FIRMWARE_REVISION_STR "336"

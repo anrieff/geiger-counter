@@ -60,7 +60,7 @@ static inline uint16_t readEE(uint8_t index)
 	return nv_read_word(ADDR_log_GM + 2 * (uint16_t) index);
 }
 
-static inline void writeEE(uint8_t index, uint16_t value)
+static void writeEE(uint8_t index, uint16_t value)
 {
 	nv_update_word(ADDR_log_GM + 2 * (uint16_t) index, value);
 }
@@ -68,7 +68,7 @@ static inline void writeEE(uint8_t index, uint16_t value)
 static inline uint32_t round_down(uint32_t x, uint8_t scaling)
 {
 	if (!scaling) return x;
-	return (x + ((1ul << scaling) >> 1)) >> scaling;
+	return ((x >> (scaling - 1)) + 1) >> 1;
 }
 
 static int get_eelog_length(void)
@@ -112,10 +112,9 @@ static void shrink_buffers()
 		uint32_t sum = (uint32_t) readEE(2 * i) + readEE(2 * i + 1);
 		writeEE(i, round_down(sum, extra_shift));
 	}
-	if (extra_shift) {
+	if (extra_shift)
 		eelog.scaling += extra_shift;
-		nv_update_byte(ADDR_log_scaling, eelog.scaling);
-	}
+
 	// fill the now empty half with zeros:
 	for (i = EELOG_LENGTH / 2; i < EELOG_LENGTH; i++)
 		writeEE(i, 0);
@@ -129,12 +128,12 @@ static void shrink_buffers()
 		nv_update_byte(ADDR_log_V + i, avg);
 	}
 	// fill the now empty half with zeros:
-	for (i = 0; i < VLOG_LENGTH / 2; i++)
-		nv_update_byte(ADDR_log_V + VLOG_LENGTH / 2 + i, 0);
+	for (i = VLOG_LENGTH / 2; i < VLOG_LENGTH; i++)
+		nv_update_byte(ADDR_log_V + i, 0);
 
 	// increment the "resolution" flag and double the num samples per flush:
 	eelog.res++;
-	nv_update_byte(ADDR_log_res, eelog.res); // update EEPROM as well
+	write_nv_struct(); // update EEPROM as well
 	gm_flush_amount *= 2;
 	v_flush_amount *= 2;
 	// reset the length:
@@ -158,6 +157,7 @@ static void add_sample_eeprom(uint32_t gm, uint8_t voltage)
 			
 			eelog.scaling += extra_shift;
 			gm_accum = round_down(gm_accum, extra_shift);
+			nv_update_byte(ADDR_log_scaling, eelog.scaling);
 		}
 		writeEE(eelog.length, gm_accum);
 		gm_counts = 0;
@@ -194,21 +194,25 @@ static void add_sample_sram(uint32_t gm, uint8_t voltage)
 			if (buffer[i] > max_sample)
 				max_sample = buffer[i];
 
-		sram.scaling = 0;
-		while (round_down(max_sample, sram.scaling) > 0xffff) {
-			sram.scaling++;
+		uint8_t ee_scaling = 0;
+		while (round_down(max_sample, ee_scaling) > 0xffff) {
+			ee_scaling++;
 		}
+		// write to EEPROM buffer:
 		for (uint8_t i = 0; i < SRAMLOG_LENGTH; i++)
-			buffer[i] = round_down(buffer[i], sram.scaling);
+			writeEE(i, round_down(buffer[i], ee_scaling));
+
+		// write zeros to the rest:
+		for (uint8_t i = SRAMLOG_LENGTH; i < EELOG_LENGTH; i++)
+			writeEE(i, 0);
 
 		eelog = sram;
+		eelog.scaling = ee_scaling;
 		v_accum = buf_v_accum;
 		v_counts = sram.length % VOLTAGE_SUB;
 		write_nv_struct();
 
-		// write sample items:
-		for (uint8_t i = 0; i < EELOG_LENGTH; i++)
-			writeEE(i, (i < SRAMLOG_LENGTH) ? buffer[i] : 0);
+		// write voltage sample items:
 		for (uint8_t i = 0; i < VLOG_LENGTH; i++)
 			nv_update_byte(ADDR_log_V + i,
 			               (i < SRAMLOG_LENGTH / VOLTAGE_SUB) ? buf_v[i] : 0);

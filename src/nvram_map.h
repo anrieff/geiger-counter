@@ -33,12 +33,24 @@
 
 enum NVRAMAddr {
 	ADDR_brightness  = 0,   // display brightness      : a 8-bit value
+	ADDR_settings    = 1,   // device settings bitfield: 8-bit value
 	ADDR_device_id   = 2,   // unique device ID        : 16-bit number
+	ADDR_tube_num    = 4,   // GM tube mult. numerator : 13-bit value + 3 bits of checksum
+	ADDR_tube_denom  = 6,   // GM tube mult. denom.    : 16-bit value
+	ADDR_rad_limit   = 8,   // Alarm for rad. level    : 16-bit value
+	ADDR_dose_limit  = 10,  // Alarm for dose accum.   : 16-bit value
+	
 	ADDR_log_id      = 12,  // Log serial number (id)  : 16-bit value
 	ADDR_log_res     = 14,  // Log "resolution"        : 8-bit value
 	ADDR_log_scaling = 15,  // Log "scaling"           : 8-bit value
 	ADDR_log_GM      = 16,  // start of GM log         : 240 values of 16 bits
 	ADDR_log_V       = 496, // start of the voltage log: 12 values of 8 bits
+};
+
+enum SettingsBits {
+	BIT_Magic = 0,
+	BIT_BLVW  = 2,
+	BIT_UASU  = 3,
 };
 
 #endif // __NVRAM_MAP__

@@ -113,6 +113,7 @@
 #include <avr/interrupt.h>	// interrupt service routines
 #include <avr/pgmspace.h>	// tools used to store variables in program memory
 #include <avr/sleep.h>		// sleep mode utilities
+#include <avr/wdt.h>        // watchdog timer utilities
 #include <util/delay.h>		// some convenient delay functions
 #include <stdlib.h>			// some handy functions like ultoa()
 #include <string.h>         // for memcpy()
@@ -122,6 +123,8 @@
 #include "battery.h"
 #include "logging.h"
 #include "pc_link.h"
+#include "nvram_settings.h"
+#include "alarms.h"
 
 // Defines
 #define VERSION			"2.00"
@@ -132,7 +135,6 @@
 #define THRESHOLD		1000	// CPM threshold for fast avg mode
 #define LONG_PERIOD		60		// # of samples to keep in memory in slow avg mode
 #define SHORT_PERIOD	5		// # of samples for fast avg mode
-#define SCALE_FACTOR	57		//	CPM to uSv/hr conversion factor (x10,000 to avoid float)
 #define PULSEWIDTH		100		// width of the PULSE output (in microseconds)
 #define CPU_MHZ	(F_CPU/1000000) // MCU speed in MHz. Default is 8, but might be different
 
@@ -190,11 +192,14 @@ ISR(INT0_vect)
 // called once per minute, and NOT from the interrupt, but from sendreport()
 void once_per_minute_tasks(void)
 {
+	if (alarm_idle_minutes > 0)
+		alarm_idle_minutes--;
 }
 
 void once_per_5min_tasks(void)
 {
-	battery_check_voltage();
+	if (s_settings().battery_warning)
+		battery_check_voltage();
 }
 
 // this is part of the Timer1 interrupt routine. The ISR calls this code exactly
@@ -254,9 +259,17 @@ void once_per_16ms_tasks(void)
 		if (button_state == 0) {
 			if (ticks_held < 190) {
 				// button has just been released
-				disp_state = (disp_state + 1) % 6;	// increment state
-				nobeep = disp_state & 1;
-				statechange = 1;
+				if (alarm_mode == ALARM_NONE) {
+					// normal short key press: change display mode
+					disp_state = (disp_state + 1) % 6;	// increment state
+					nobeep = disp_state & 1;
+					statechange = 1;
+				} else {
+					// we're in an alarm, and the user pressed a key:
+					// disable the alarm and continue as if the key press didn't
+					// occur:
+					alarm_stop();
+				}
 			}
 			ticks_held = 0;
 		}
@@ -286,6 +299,7 @@ ISR(TIMER1_COMPA_vect)
 	if (display_on  ) display_tasks(); // update the display
 	if (ms == 0)      once_per_second_tasks(); // handle stats gathering
 	if (ms % 16 == 0) once_per_16ms_tasks();   // handle button state
+	if (alarm_mode && ms % 128 == 0) alarm_tick = 1;
 }
 
 // Functions
@@ -331,8 +345,8 @@ void checkevent(void)
 
 		LED_PORT |= _BV(LED_BIT);	// turn on the LED
 		
-		if(!nobeep) {		// check if we're in mute mode
-			TCCR0A |= _BV(COM0A0);	// enable OCR0A output on the piezo pin
+		if (!nobeep && !alarm_mode) { // check if we're in mute or alarm mode
+			sounder_on();
 		}
 		
 		// 10ms delay gives a nice short flash and 'click' on the piezo
@@ -340,7 +354,9 @@ void checkevent(void)
 			
 		LED_PORT &= ~(_BV(LED_BIT));	// turn off the LED
 		
-		TCCR0A &= ~(_BV(COM0A0));	// disconnect OCR0A from Timer0
+		if (!nobeep && !alarm_mode) {
+			sounder_off();
+		}
 	}	
 }
 
@@ -397,13 +413,16 @@ void sendreport(void)
 			uart_putstring_P(PSTR(", uSv/hr, "));
 		}
 	
+		uint16_t tube_num, tube_denom;
+		s_get_tube_mult(&tube_num, &tube_denom);
 		// calculate uSv/hr based on scaling factor, and multiply result by 100
 		// so we can easily separate the integer and fractional components (2 decimal places)
-		uint32_t usv_scaled = (uint32_t)(cpm*SCALE_FACTOR)/100;	// scale and truncate the integer part
+		uint32_t usv_scaled = (uint32_t)(cpm*tube_num)/tube_denom;	// scale and truncate the integer part
+		uint32_t usv = usv_scaled / 100; // rounded down value in uSv/h
 		
 		if (!silent) {
 			// this reports the integer part
-			ultoa((uint16_t)(usv_scaled/100), serbuf, 10);	
+			ultoa((uint16_t) usv, serbuf, 10);	
 			uart_putstring(serbuf);
 				
 			uart_putchar('.');
@@ -427,9 +446,9 @@ void sendreport(void)
 			// We're done reporting data, output a newline.
 			uart_putchar('\n');	
 		}
-			
+		alarm_check_conditions(usv, total_count);
 		
-		if (disp_state < 4) {
+		if (disp_state < 4 && !alarm_mode) {
 			if (disp_state < 2)
 				display_radiation(usv_scaled);
 			else
@@ -500,7 +519,9 @@ void leave_menu(void)
 
 static void show_conversion_factor(void)
 {
-	display_int_value(SCALE_FACTOR, 0, 0);
+	uint16_t num, denom;
+	s_get_tube_mult(&num, &denom);
+	display_int_value(num, 0, 0);
 }
 
 static void show_frequency(void)
@@ -588,6 +609,16 @@ void system_menu(void)
 	leave_menu();
 }
 
+// if we were reset by the "RESET" UART command, don't forget to turn off
+// the watchdog as soon as we possibly can (before main()!)
+void wdt_init(void) __attribute__((naked)) __attribute__((section(".init3")));
+void wdt_init(void)
+{
+	MCUSR = 0;
+	wdt_disable();
+	return;
+}
+
 // Start of main program
 int main(void)
 {	
@@ -659,6 +690,8 @@ int main(void)
 		// Execution will resume here when the CPU wakes up.
 		
 		sleep_disable();	// disable sleep so we don't accidentally go to sleep
+
+		checkalarm();   // check if alarm is on and needs handling
 		
 		checkevent();	// check if we should signal an event (led + beep)
 

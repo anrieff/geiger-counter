@@ -75,10 +75,10 @@ static void beep(uint8_t char1, uint8_t char2, uint8_t char3, uint8_t char4, uin
 		display_set_dots(dp_mask);
 	}
 	// emit a 400ms beep, followed by a 100 ms silence and blank display:
-	TCCR0A |= _BV(COM0A0);	// enable OCR0A output on the piezo pin
+	sounder_on();
 	_delay_ms(400);
 
-	TCCR0A &= ~(_BV(COM0A0));	// disconnect OCR0A from Timer0
+	sounder_off();
 	if (display_on)	display_clear();
 	_delay_ms(100);
 }

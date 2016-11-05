@@ -13,6 +13,8 @@
 #define cli()
 #define sei()
 
+#define PROGMEM
+
 uint8_t eeprom_read_byte(uint8_t* address);
 uint16_t eeprom_read_word(uint16_t* address);
 
@@ -26,6 +28,9 @@ uint8_t mock_UDR0(void);
 void init_mock(void);
 
 void send_command(const char* cmd);
+
+#define WDTO_15MS 0
+#define wdt_enable
 
 
 #endif // __MOCK_H__

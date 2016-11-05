@@ -99,6 +99,11 @@ void display_turn_on(void)
 	}
 }
 
+int8_t display_is_on(void)
+{
+	return display_on;
+}
+
 void display_clear(void)
 {
 	display[0] = display[1] = display[2] = display[3] = 0;

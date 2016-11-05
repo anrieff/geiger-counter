@@ -1,10 +1,6 @@
 /*
 	Title: Geiger Counter with Serial Data Reporting and display
-	Description: Code for driving a 7-segment display
 		
-	(vesko)   8/1/15 1.50: Initial release of the upgraded version.
-	(vesko) 12/21/15 2.00: Update to drive a "dumb" display directly
-
 		Copyright 2011 Jeff Keyzer, MightyOhm Engineering
 		Copyright 2015, 2016 Veselin Georgiev, LVA Ltd.
  
