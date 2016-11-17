@@ -159,8 +159,8 @@ void display_counts(uint32_t counts)
 
 void display_show_revision(void)
 {
-	display_int_value(FIRMWARE_REVISION, 3, 1); // " .XXX"
-	display[0] = cR;                            // "r.XXX"
+	display_int_value(FIRMWARE_REVISION, 3, 1); // "  XXX"
+	display[0] = cR | mDOT;                     // "r.XXX"
 }
 
 void display_tasks(void)

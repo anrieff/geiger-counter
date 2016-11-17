@@ -25,6 +25,13 @@ This is my fork of MightyOhm's Geiger Counter. It features:
 	* 9-level display brightness setting;
 	* Battery level monitoring, including an alarm tone if the batteries are nearly flat.
 
+* **v2.1**
+	* PC link protocol: the device can be hooked up to a PC via a serial link (e.g., using a USB-to-UART convertor like the [SparkFun's FTDI Basic](https://www.sparkfun.com/products/9873)). Using that protocol you can:
+		* Fine-tune the GM tube sensitivity, instead of the fixed "57/100" value used in earlier firmwares;
+		* Set up alarms if the radioactivity exceeds a certain level;
+		* Set up and download radiation logging.
+	* Logging feature: leave the Geiger Counter turned on somewhere and it will accumulate statistics for the radiation level over time. The log data is stored in the ATmega EEPROM, so it's saved even in the event of a power loss. The gathered data can later be downloaded via the PC link, and you can graph it over time, producing charts like [this](http://anrieff.net/radiation_logs/RL_Flight_SOF_BLQ.png).
+
 # Hardware
 
 The device is sold through our friends at Robotev, [see here](http://www.robotev.com/product_info.php?cPath=1_50&products_id=578) if you want one (currently shipping to Bulgaria and Balkan-area countries only). More photos of the device can be found [here](http://lva.bg/products/geiger-counter/gallery).

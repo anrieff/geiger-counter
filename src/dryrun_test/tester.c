@@ -30,13 +30,10 @@ const char* USAGE =
 "	CLOG (void) - Clear all logs\n"
 "\n"
 "Simulator commands:\n"
-"\thelp, exit, addsamples <count>, setrad <radiation> [uSv|mSv|Sv],\n"
-"\tdc, battery.";
+"\thelp, exit, addsamples <count>, setrad <radiation> [uSv|mSv|Sv].\n";
 
 
 double radiation = 0.14; // uSv/h
-int voltage_baseline = 3003;
-int battery_sim = 0;
 
 int poisson_sample(void)
 {
@@ -62,24 +59,6 @@ int poisson_sample(void)
 	return k - 1;
 }
 
-uint16_t voltage_sample_dc(void)
-{
-	return voltage_baseline + rand() % 45;   
-}
-
-uint16_t voltage_sample_battery(void)
-{
-	return voltage_sample_dc(); //TODO
-}
-
-uint16_t voltage_sample(void)
-{
-	if (battery_sim)
-		return voltage_sample_battery();
-	else
-		return voltage_sample_dc();
-}
-
 void repl()
 {
 	char line[200];
@@ -91,7 +70,7 @@ void repl()
 				int numsamples;
 				if (1 == sscanf(line, "addsamples %d", &numsamples)) {
 					for (int i = 0; i < numsamples; i++) {
-						logging_add_data_point(poisson_sample(), voltage_sample());
+						logging_add_data_point(poisson_sample());
 					}
 				}
 			} else if (!strncmp(line, "setrad", 6)) {

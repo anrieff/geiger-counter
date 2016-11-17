@@ -44,7 +44,6 @@ enum NVRAMAddr {
 	ADDR_log_res     = 14,  // Log "resolution"        : 8-bit value
 	ADDR_log_scaling = 15,  // Log "scaling"           : 8-bit value
 	ADDR_log_GM      = 16,  // start of GM log         : 240 values of 16 bits
-	ADDR_log_V       = 496, // start of the voltage log: 12 values of 8 bits
 };
 
 enum SettingsBits {

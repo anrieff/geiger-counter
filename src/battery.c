@@ -27,7 +27,7 @@
 #include "display.h"
 #include "characters.h"
 
-const uint16_t LOW_VOLTAGE_THRESHOLD = 2200; // millivolts
+const uint16_t LOW_VOLTAGE_THRESHOLD = 2100; // millivolts
 
 void init_ADC(void)
 {

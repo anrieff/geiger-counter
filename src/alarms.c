@@ -76,14 +76,15 @@ void checkalarm(void)
 		case 0:
 		{
 			if (alarm_mode == ALARM_1HZ) {
+				// "rAd. "
 				display[0] = cR;
 				display[1] = cA;
-				display[2] = cD;
+				display[2] = cD | mDOT;
 				display[3] = 00;
-				display_set_dots(DP3);
 				sounder_on();
 			}
 			if (alarm_mode == ALARM_HALF_HZ) {
+				// "dOSE"
 				display[0] = cD;
 				display[1] = cO;
 				display[2] = cS;
@@ -102,7 +103,7 @@ void checkalarm(void)
 		{
 			if (alarm_mode == ALARM_1HZ)
 				sounder_off();
-			
+			// " hI. "
 			display[1] = cH;
 			display[2] = cI;
 			display_set_dots(DP3);

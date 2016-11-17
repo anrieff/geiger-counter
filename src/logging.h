@@ -45,8 +45,7 @@ void logging_get_info(LogEntry log_entry, struct LogInfo* log_info);
 // adds a data point to the logs. This shall be called every 30 seconds with
 // aggregated info for these 30 seconds:
 // gm - GM events for the last 30 seconds
-// voltage - current battery voltage, in millivolts
-void logging_add_data_point(uint32_t gm, uint16_t voltage);
+void logging_add_data_point(uint32_t gm);
 
 // reset both logs
 void logging_reset_all(void);

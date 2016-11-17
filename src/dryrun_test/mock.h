@@ -29,6 +29,11 @@ void init_mock(void);
 
 void send_command(const char* cmd);
 
+#define PGM_P char*
+
+#define pgm_read_word(x) (*(x))
+#define pgm_read_byte(x) (*(x))
+
 #define WDTO_15MS 0
 #define wdt_enable
 

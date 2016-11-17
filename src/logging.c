@@ -41,19 +41,13 @@
 enum {
 	SRAMLOG_LENGTH =  40,  // 40 * 30 secs = 20 minutes.
 	EELOG_LENGTH   = 240,
-	VOLTAGE_SUB    =  20,  // voltage subsampling. How many GM samples are written out per one voltage sample
-	VLOG_LENGTH    = EELOG_LENGTH / VOLTAGE_SUB,
 };
 
 static struct LogInfo sram, eelog;
 static uint32_t buffer[SRAMLOG_LENGTH]; // buffer for the SRAM log
-static uint8_t buf_v[SRAMLOG_LENGTH / VOLTAGE_SUB + 1]; // voltage buffer (SRAM log)
-static uint32_t buf_v_accum;
 static uint32_t gm_accum; // accumulator
 static uint16_t gm_counts; // how many 30-second samples are in the accumulator
-static uint32_t v_accum, v_counts;
 static uint16_t gm_flush_amount;
-static uint32_t v_flush_amount;
 
 static inline uint16_t readEE(uint8_t index)
 {
@@ -86,7 +80,7 @@ static void write_nv_struct(void)
 	nv_update_byte(ADDR_log_scaling, eelog.scaling);
 }
 
-static void shrink_buffers()
+static void shrink_buffer()
 {
 	// EEPROM buffer is about to overflow. Subsample and decrease resolution:
 	uint8_t i;
@@ -119,32 +113,18 @@ static void shrink_buffers()
 	for (i = EELOG_LENGTH / 2; i < EELOG_LENGTH; i++)
 		writeEE(i, 0);
 
-	// subsample voltage buffer:
-	for (i = 0; i < VLOG_LENGTH / 2; i++) {
-		// merge voltages (average):
-		uint8_t avg = (uint8_t)
-			(( + (uint16_t) nv_read_byte(ADDR_log_V + 2 * i) 
-			   + (uint16_t) nv_read_byte(ADDR_log_V + 2 * i + 1)) >> 1);
-		nv_update_byte(ADDR_log_V + i, avg);
-	}
-	// fill the now empty half with zeros:
-	for (i = VLOG_LENGTH / 2; i < VLOG_LENGTH; i++)
-		nv_update_byte(ADDR_log_V + i, 0);
-
 	// increment the "resolution" flag and double the num samples per flush:
 	eelog.res++;
 	write_nv_struct(); // update EEPROM as well
 	gm_flush_amount *= 2;
-	v_flush_amount *= 2;
 	// reset the length:
 	eelog.length = EELOG_LENGTH / 2;
 }
 
 
-static void add_sample_eeprom(uint32_t gm, uint8_t voltage)
+static void add_sample_eeprom(uint32_t gm)
 {
 	gm_accum += gm; gm_counts++;
-	v_accum += voltage; v_counts++;
 	if (gm_counts == gm_flush_amount) {
 		gm_accum = round_down(gm_accum, eelog.scaling);
 		if (gm_accum > 0xffff) {
@@ -163,29 +143,17 @@ static void add_sample_eeprom(uint32_t gm, uint8_t voltage)
 		gm_counts = 0;
 		gm_accum = 0;
 
-		if (v_counts == v_flush_amount) {
-			nv_update_byte(ADDR_log_V + eelog.length / VOLTAGE_SUB,
-				              (uint8_t) (v_accum / v_counts));
-			v_counts = 0;
-			v_accum = 0;
-		}
-
 		eelog.length++;
 
 		if (eelog.length == EELOG_LENGTH) 
-			shrink_buffers();
+			shrink_buffer();
 	}
 }
 
-static void add_sample_sram(uint32_t gm, uint8_t voltage)
+static void add_sample_sram(uint32_t gm)
 {
 	if (sram.length < SRAMLOG_LENGTH) {
 		buffer[sram.length++] = gm;
-		buf_v_accum += voltage;
-		if (sram.length % VOLTAGE_SUB == 0) {
-			buf_v[sram.length / VOLTAGE_SUB - 1] = buf_v_accum / VOLTAGE_SUB;
-			buf_v_accum = 0;
-		}
 	} else {
 		// SRAM log overflow; transfer to EEPROM and mark them as copies of
 		// each other:
@@ -208,16 +176,9 @@ static void add_sample_sram(uint32_t gm, uint8_t voltage)
 
 		eelog = sram;
 		eelog.scaling = ee_scaling;
-		v_accum = buf_v_accum;
-		v_counts = sram.length % VOLTAGE_SUB;
 		write_nv_struct();
 
-		// write voltage sample items:
-		for (uint8_t i = 0; i < VLOG_LENGTH; i++)
-			nv_update_byte(ADDR_log_V + i,
-			               (i < SRAMLOG_LENGTH / VOLTAGE_SUB) ? buf_v[i] : 0);
-
-		add_sample_eeprom(gm, voltage);
+		add_sample_eeprom(gm);
 	}
 }
 
@@ -238,19 +199,15 @@ void logging_init(void)
 	sram.res = 1; // 30 second samples
 
 	gm_accum = gm_counts = 0;
-	v_accum = 0;
-	buf_v_accum = 0;
 	gm_flush_amount = 1;
-	v_flush_amount = (uint32_t) gm_flush_amount * VOLTAGE_SUB;
 }
 
-void logging_add_data_point(uint32_t gm, uint16_t voltage)
+void logging_add_data_point(uint32_t gm)
 {
-	uint8_t voltage_comp = (voltage - 1650) / 10;
 	if (sram.id != eelog.id) {
-		add_sample_sram(gm, voltage_comp);
+		add_sample_sram(gm);
 	} else {
-		add_sample_eeprom(gm, voltage_comp);
+		add_sample_eeprom(gm);
 	}
 }
 
@@ -269,10 +226,7 @@ void logging_reset_all(void)
 	nv_update_byte(ADDR_log_res, 1);
 	for (i = 0; i < EELOG_LENGTH; i++)
 		nv_update_word(ADDR_log_GM + 2 * i, 0);
-	for (i = 0; i < VLOG_LENGTH; i++)
-		nv_update_byte(ADDR_log_V + i, 0);
 	memset(buffer, 0, sizeof(buffer));
-	memset(buf_v, 0, sizeof(buf_v));
 
 	// reset structures:
 	logging_init();
@@ -291,15 +245,5 @@ void logging_fetch_log(LogEntry log_entry, PFNValue value_fn, PFNLine endline)
 
 	for (i = 0; i < log->length; i++)
 		value_fn((log_entry == LOG_SRAM) ? buffer[i] : readEE(i));
-	endline();
-
-	uint8_t vlength = log->length / VOLTAGE_SUB;
-	for (i = 0; i < vlength; i++) {
-		uint8_t value = 
-			(log_entry == LOG_SRAM) ?
-				buf_v[i] :
-				nv_read_byte(ADDR_log_V + i);
-		value_fn(value);
-	}
 	endline();
 }

@@ -74,7 +74,7 @@
 	are almost dead.
 
 	The v2.0 device sports an engineering menu: turn the unit on, while holding the button. The menu shows system info,
-	which you can browse by pressing the button. The entries shown are: software revision, GM tube conversion factor,
+	which you can browse by pressing the button. The entries shown are: software revision, GM tube conversion factor numerator,
 	battery voltage (which may be off by as much as 10% in either direction - don't rely too much on it), and, finally,
 	oscillator frequency in MHz. 
 	
@@ -127,8 +127,8 @@
 #include "alarms.h"
 
 // Defines
-#define VERSION			"2.00"
-#define URL				"http://LVA.bg/products/geiger-counter/2.0"
+#define VERSION			"2.0/2.1"
+#define URL				"http://LVA.bg/products/geiger-counter/"
 
 #define	BAUD			9600	// Serial BAUD rate
 #define SER_BUFF_LEN	11		// Serial buffer length
@@ -137,11 +137,6 @@
 #define SHORT_PERIOD	5		// # of samples for fast avg mode
 #define PULSEWIDTH		100		// width of the PULSE output (in microseconds)
 #define CPU_MHZ	(F_CPU/1000000) // MCU speed in MHz. Default is 8, but might be different
-
-// Function prototypes
-void uart_putchar(char c);			// send a character to the serial port
-void uart_putstring(const char *buffer);		// send a null-terminated string in SRAM to the serial port
-void uart_putstring_P(const char *buffer);	// send a null-terminated string in PROGMEM to the serial port
 
 void checkevent(void);	// flash LED and beep the piezo
 void sendreport(void);	// log data over the serial port
@@ -470,7 +465,7 @@ void sendreport(void)
 			uint32_t t = total_count;
 			sei();
 
-			logging_add_data_point(t - last_total_count, battery_get_voltage());
+			logging_add_data_point(t - last_total_count);
 			last_total_count = t;
 		}
 	}	

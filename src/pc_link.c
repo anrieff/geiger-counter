@@ -24,12 +24,22 @@
 
 /**
  * @brief PC Link protocol description
- * @version 42
+ * @version 44
  * 
+ * Version history:
+ *   ver42: RSLOG/REELOG had an extra line after the main log, including
+ *          battery voltage log, at a reduced resolution.
+ *          After some tests it was determined that battery voltage has no
+ *          effect on the detection sensitivity, and its low resolution
+ *          made the info mostly unusable. But it was taking a lot of code
+ *          and effort to maintain and process, so it was scrapped.
+ *          Thus RSLOG/REELOG now output only three lines, the third being
+ *          always empty.
+ *
  * 
  * Command: HELO
  * Description: Replies with firmware revision and protocol version.
- * Sample response: "O HAI,331,42"
+ * Sample response: "O HAI,331,44"
  * Synopsis: the first number is firmware revision, the second one is protocol
  *           version.
  * 
@@ -87,7 +97,6 @@
  * """
  *   15,1,0,23
  *   10,8,11,13,10,9,12,14,11,8,8,10,12,7,9,10,11,13,14,10,11,9,9
- *   138
  *
  * """
  * Synopsis: First line is "id,resolution,scaling,#samples"
@@ -108,14 +117,7 @@
  *  Geiger-Muller discharges were recorded within a time interval of 
  *  (15 * 2^resolution) seconds.".
  *
- *  The last line contains a log of the supply voltage. Its length will be
- *  exactly floor(#samples/20). Each sample Y should be interpreted as
- *  (1.65 + Y/100) volts average for a time interval of (300 * 2^resolution)
- *  seconds. The samples of the supply voltage log are 8-bit, hence the
- *  peculiar encoding.
- *
- *  Note there's an extra newline after the battery log line. It's always there,
- *  even if the battery log is empty.
+ *  Note there's an extra newline after the second line. It's always there.
  *
  *
  * Command: REELOG
@@ -264,6 +266,19 @@
  	BAD_ARGUMENT,
  	ARGUMENT_EXPECTED,
  };
+
+// replies to the above enum values (except for NORMAL, which requires no further output):
+static const char R_OK[]                PROGMEM = "OK";
+static const char R_UNKNOWN_COMMAND[]   PROGMEM = "Unknown command!";
+static const char R_BAD_ARGUMENT[]      PROGMEM = "Bad argument (format or range error)!";
+static const char R_ARGUMENT_EXPECTED[] PROGMEM = "Argument required";
+static const char* const RESPONSES[] PROGMEM = {
+	R_OK,
+	R_UNKNOWN_COMMAND,
+	R_BAD_ARGUMENT,
+	R_ARGUMENT_EXPECTED,
+};
+
 
 static char recv_buf[12];
 static volatile uint8_t recv_buf_ptr;
@@ -445,7 +460,7 @@ int8_t interpret_command(const char* cmd)
 		case 0xD518:
 		{
 			//
-			uart_putstring_P(PSTR("O HAI," FIRMWARE_REVISION_STR ",42"));
+			uart_putstring_P(PSTR("O HAI," FIRMWARE_REVISION_STR ",44"));
 			//
 			return NORMAL;
 		}
@@ -594,15 +609,9 @@ void pc_link_check(void)
 	while (i > 0 && (cmd[i - 1] == '\n' || cmd[i - 1] == '\r')) cmd[--i] = 0;
 
 	// interpret the command:
-	static const char* const RESPONSES[] PROGMEM = {
-		"OK",
-		"Unknown command!",
-		"Bad argument (format or range error)!",
-		"Argument required",
-	};
 	int8_t response = interpret_command(cmd);
 	if (response != NORMAL) {
-		uart_putstring_P(RESPONSES[response - OK]);
+		uart_putstring_P((PGM_P) pgm_read_word(&(RESPONSES[response - OK])));
 	}
 	uart_putchar('\n');
 }
