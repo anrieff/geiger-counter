@@ -1,4 +1,4 @@
-# LVA Geiger Counter v1.5/2.0 source code
+# LVA Geiger Counter v1.5/2.0/2.1 source code
 
 ![Image of Geiger Counter v2.0](http://lva.bg/products/geiger-counter/gallery/Geiger_main-smaller.jpg)
 
