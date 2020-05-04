@@ -9,7 +9,7 @@ This collection of scripts serves to manage geiger counters connected to a PC se
 # Example workflow:
 
 1. Start your geiger counter so that it collects data. You may turn off the display to save power.
-2. Record when you started it.
+2. Write down when you started it.
 3. You can turn the device off when you want to stop gathering data (optional - you can also download data as-you-go).
 4. Connect the geiger counter to the PC using the UART converter (on Windows you may need to know which port number it got assigned to).
 5. Run the `download_log` script, e.g.: `./download_log.py -start 2020-04-10-16:35`
@@ -50,5 +50,5 @@ Run `./decode_log.py --help` for the full list of command-line switches supporte
 
 # Issues and caveats
 
-* This is only well-tested on Linux, but it reportedly works on Windows. You need to specify the COM port using the -p switch for `download_log`.
+* This is only well-tested on Linux, but it reportedly works on Windows. You need to specify the COM port using the `-port` switch for `download_log`.
 * The scripts assume you are knowledgeable about when you started logging data. It cannot verify your inputs - the devices don't have a RTC.
