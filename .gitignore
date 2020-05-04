@@ -10,3 +10,7 @@ src/*.su
 display_sim
 src/dryrun_test/eeprom
 src/dryrun_test/dryrun
+
+# logged data from devices
+*.geigerlog
+pc_software/*.png
